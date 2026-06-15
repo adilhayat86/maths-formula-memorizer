@@ -211,24 +211,34 @@ public class MainActivity extends Activity {
     }
 
     private void showLesson(Formula f) {
-        LinearLayout root = baseScreen(f.name, f.topic);
+        LinearLayout root = baseScreen("Learn formula", selectedClass + " • " + f.topic);
 
-        LinearLayout card = card();
-        card.addView(sectionTitle("Remember this formula"));
-        card.addView(formulaText(f.formula));
-        card.addView(bodyText(f.explanation));
-        card.addView(sectionTitle("Example"));
-        card.addView(bodyText(f.example));
-        root.addView(card);
+        LinearLayout hero = cardTint(GREEN_LIGHT);
+        hero.addView(sectionTitle(topicIcon(f.topic) + " " + f.topic));
+        hero.addView(bigText(f.name));
+        hero.addView(formulaText(f.formula));
+        hero.addView(smallText("Look once, say it in your mind, then test yourself."));
+        root.addView(hero);
 
-        Button quiz = primaryButton("Start 3-question quiz");
+        LinearLayout meaning = card();
+        meaning.addView(sectionTitle("What it means"));
+        meaning.addView(bodyText(f.explanation));
+        root.addView(meaning);
+
+        LinearLayout example = card();
+        example.addView(sectionTitle("Quick example"));
+        example.addView(bodyText(f.example));
+        root.addView(example);
+
+        Button quiz = primaryButton("I remember it — start quiz");
         quiz.setOnClickListener(v -> showQuiz(f));
         root.addView(quiz);
 
-        Button back = ghostButton("Back");
-        back.setOnClickListener(v -> showHome());
+        Button back = ghostButton("Back to area");
+        back.setOnClickListener(v -> showTopic(f.topic));
         root.addView(back);
     }
+
 
     private void showQuiz(Formula f) {
         List<Question> questions = buildQuiz(f);
@@ -238,10 +248,17 @@ public class MainActivity extends Activity {
 
     private void renderQuestion(QuizSession session) {
         Question q = session.questions.get(session.index);
-        LinearLayout root = baseScreen("Question " + (session.index + 1) + " of " + session.questions.size(), session.formula.name);
+        LinearLayout root = baseScreen("Quick quiz", session.formula.name);
+
+        LinearLayout progressCard = cardTint(GREEN_LIGHT);
+        progressCard.addView(sectionTitle("Question " + (session.index + 1) + " of " + session.questions.size()));
+        addProgressBar(progressCard, session.questions.size(), session.index + 1);
+        progressCard.addView(smallText("Score so far: " + session.correct + " correct"));
+        root.addView(progressCard);
 
         LinearLayout card = card();
         card.addView(bigText(q.prompt));
+        card.addView(smallText("Tap the best answer."));
         for (String option : q.options) {
             Button b = secondaryButton(option);
             b.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
@@ -259,14 +276,20 @@ public class MainActivity extends Activity {
         root.addView(card);
     }
 
+
     private void showFeedback(QuizSession session, Question q, boolean correct, String chosen) {
-        LinearLayout root = baseScreen(correct ? "Correct ✓" : "Not yet", session.formula.name);
-        LinearLayout card = card();
-        TextView title = bigText(correct ? "Good job!" : "Correct answer: " + q.correctAnswer);
-        title.setTextColor(correct ? GREEN_DARK : RED);
+        LinearLayout root = baseScreen(correct ? "Correct ✓" : "Almost — review it", session.formula.name);
+        LinearLayout card = cardTint(correct ? GREEN_LIGHT : Color.rgb(255, 251, 235));
+        TextView title = bigText(correct ? "Good job!" : "Correct answer");
+        title.setTextColor(correct ? GREEN_DARK : AMBER);
         card.addView(title);
         if (!correct) {
             card.addView(smallText("Your answer: " + chosen));
+        }
+        if (looksLikeFormula(q.correctAnswer)) {
+            card.addView(formulaText(q.correctAnswer));
+        } else {
+            card.addView(bigText(q.correctAnswer));
         }
         card.addView(bodyText(q.explanation));
         root.addView(card);
@@ -282,6 +305,7 @@ public class MainActivity extends Activity {
         });
         root.addView(next);
     }
+
 
     private void finishLesson(QuizSession session) {
         Formula f = session.formula;
@@ -303,25 +327,34 @@ public class MainActivity extends Activity {
         updateStreak(editor);
         editor.apply();
 
-        LinearLayout root = baseScreen("Lesson complete", f.name);
-        LinearLayout card = cardTint(session.correct == session.questions.size() ? GREEN_LIGHT : Color.rgb(255, 251, 235));
-        card.addView(bigText("Score: " + session.correct + " / " + session.questions.size()));
-        if (session.correct == session.questions.size()) {
+        boolean perfect = session.correct == session.questions.size();
+        LinearLayout root = baseScreen(perfect ? "Mastered ✓" : "Added to review", f.name);
+        LinearLayout card = cardTint(perfect ? GREEN_LIGHT : Color.rgb(255, 251, 235));
+        card.addView(bigText(stars(session.correct, session.questions.size()) + "  Score: " + session.correct + " / " + session.questions.size()));
+        card.addView(formulaText(f.formula));
+        if (perfect) {
             card.addView(bodyText("Excellent. This formula is marked as mastered."));
         } else {
-            card.addView(bodyText("Good practice. This formula is now in mistake review."));
+            card.addView(bodyText("Good practice. This formula will appear in mistake review until it becomes easy."));
         }
-        card.addView(smallText("Keep lessons short. One formula at a time builds memory faster."));
+        card.addView(smallText("One formula at a time builds long-term memory."));
         root.addView(card);
 
         Button continueBtn = primaryButton("Next formula");
         continueBtn.setOnClickListener(v -> showLesson(nextFormula(availableFormulas(), getCompletedSet())));
         root.addView(continueBtn);
 
+        if (!perfect) {
+            Button review = secondaryButton("Review mistakes");
+            review.setOnClickListener(v -> showWeakFormulas());
+            root.addView(review);
+        }
+
         Button home = ghostButton("Home");
         home.setOnClickListener(v -> showHome());
         root.addView(home);
     }
+
 
     private void showWeakFormulas() {
         List<Formula> weak = new ArrayList<>();
@@ -330,19 +363,28 @@ public class MainActivity extends Activity {
         }
         Collections.sort(weak, (a, b) -> prefs.getInt("wrong_" + b.id, 0) - prefs.getInt("wrong_" + a.id, 0));
 
-        LinearLayout root = baseScreen("Weak formulas", "Practice formulas you forgot before.");
+        LinearLayout root = baseScreen("Mistake review", "Practice formulas you forgot before.");
         if (weak.isEmpty()) {
-            LinearLayout c = card();
-            c.addView(bigText("No weak formulas yet"));
+            LinearLayout c = cardTint(GREEN_LIGHT);
+            c.addView(bigText("No weak formulas yet ✓"));
             c.addView(bodyText("Mistakes will appear here automatically after quizzes."));
+            c.addView(smallText("Keep practicing one formula per day."));
             root.addView(c);
         } else {
+            LinearLayout top = cardTint(Color.rgb(255, 251, 235));
+            top.addView(bigText("Review the hardest one first"));
+            top.addView(smallText("Weak formulas are sorted by number of mistakes."));
+            Button start = primaryButton("Start mistake review");
+            start.setOnClickListener(v -> showLesson(weak.get(0)));
+            top.addView(start);
+            root.addView(top);
+
             for (Formula f : weak) {
                 LinearLayout c = card();
-                c.addView(bigText(f.name));
+                c.addView(bigText("⚠ " + f.name));
+                c.addView(smallText(f.topic + " • Mistakes: " + prefs.getInt("wrong_" + f.id, 0)));
                 c.addView(formulaText(f.formula));
-                c.addView(smallText("Mistakes: " + prefs.getInt("wrong_" + f.id, 0)));
-                Button practice = primaryButton("Practice again");
+                Button practice = secondaryButton("Practice again");
                 practice.setOnClickListener(v -> showLesson(f));
                 c.addView(practice);
                 root.addView(c);
@@ -352,6 +394,7 @@ public class MainActivity extends Activity {
         back.setOnClickListener(v -> showHome());
         root.addView(back);
     }
+
 
     private void showProgress() {
         List<Formula> available = availableFormulas();
@@ -593,6 +636,17 @@ public class MainActivity extends Activity {
         return c;
     }
 
+
+
+    private boolean looksLikeFormula(String s) {
+        return s.contains("=") || s.contains("×") || s.contains("/") || s.contains("π") || s.contains("²") || s.contains("√");
+    }
+
+    private String stars(int correct, int total) {
+        if (correct == total) return "★★★";
+        if (correct >= Math.max(1, total - 1)) return "★★☆";
+        return "★☆☆";
+    }
 
     private LinearLayout cardTint(int color) {
         LinearLayout c = card();
