@@ -27,6 +27,31 @@ A simple native Android app for memorizing maths formulas with a Duolingo-style 
 - App icon vector placeholder
 - Formula database included in MainActivity.java
 
+## Product polish update
+
+Run this once after pulling latest changes:
+
+```cmd
+python scripts\apply_product_polish_update.py
+```
+
+If Python does not run, use:
+
+```cmd
+py scripts\apply_product_polish_update.py
+```
+
+This improves the product experience with:
+
+- more polished rounded cards/buttons
+- better home screen with today's goal
+- accuracy, streak, and weak formula count
+- area progress bars
+- formula status icons
+- better progress report
+- extra formulas for Class 6–10
+- improved Play Store listing draft
+
 ## How to open on Windows
 
 1. Install Android Studio.
@@ -34,8 +59,16 @@ A simple native Android app for memorizing maths formulas with a Duolingo-style 
 3. Click **Open**.
 4. Select this folder: `maths-formula-memorizer`.
 5. Wait for Gradle sync.
-6. Connect your Android phone with USB debugging enabled.
+6. Connect your Android phone with USB debugging enabled, or use an emulator.
 7. Press **Run**.
+
+## Product principle
+
+The app should feel useful in 30 seconds:
+
+Open app → choose class → choose area → learn one formula → answer 3 questions.
+
+No login. No ads. No internet. No distractions.
 
 ## How to change the app name
 
