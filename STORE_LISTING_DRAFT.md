@@ -1,28 +1,40 @@
-# Play Store Listing Draft
+# Store Listing Draft
 
 ## App name
 Maths Formula Memorizer Offline
 
 ## Short description
-Learn maths formulas with quick flashcard-style lessons and quizzes. Offline, no ads, no login.
+Memorize maths formulas with quick lessons, quizzes, and mistake review. No ads.
 
 ## Full description
-Maths Formula Memorizer Offline helps students remember important maths formulas with short, fast practice lessons.
+Maths Formula Memorizer Offline helps students remember important maths formulas using short, focused practice.
 
-Choose your class, open a topic, learn one formula, then answer 3 quick questions. The app repeats formulas you forget so you can improve faster.
+Choose your class, pick an area of study, learn one formula, and answer a quick 3-question quiz. The app repeats weak formulas so students can improve without distractions.
 
-Features:
-- Class-wise maths formula practice
-- Short formula lessons
-- Quick 3-question quizzes
-- Weak formulas review
-- Progress and streak tracking
-- Works offline
+Key features:
+- Class-wise formula practice
+- Areas such as algebra, geometry, mensuration, trigonometry, finance, sequences, and probability
+- Short 1-minute lessons
+- 3-question quizzes
+- Weak formula review
+- Progress, accuracy, and streak tracking
+- Works fully offline
 - No ads
 - No login
 - No internet required
 
-Useful for quick daily practice before school, tests, and exams.
+Designed for fast daily practice. Open the app, learn one formula, and close it.
+
+## Privacy-friendly promise
+This app does not require an account, does not show ads, and does not use internet permission. Progress is saved only on the user's device.
+
+## Screenshot captions
+1. Choose your class and start quickly
+2. Pick an area of study
+3. Learn one formula at a time
+4. Answer quick quiz questions
+5. Review weak formulas
+6. Track progress and streak
 
 ## Paid app angle
 One-time purchase. No ads and no distractions.
