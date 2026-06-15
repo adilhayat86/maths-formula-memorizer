@@ -1,0 +1,27 @@
+# Gradle and Android build outputs
+.gradle/
+build/
+app/build/
+
+# Local machine configuration
+local.properties
+
+# Android Studio user state
+.idea/workspace.xml
+.idea/vcs.xml
+.idea/deploymentTargetSelector.xml
+.idea/caches/
+.idea/tasks.xml
+.idea/usage.statistics.xml
+.idea/dictionaries/
+.idea/shelf/
+
+# Signing keys and generated packages
+*.jks
+*.keystore
+*.apk
+*.aab
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,19 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.mominhayat.mathsformulamemorizer'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.mominhayat.mathsformulamemorizer'
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+}
+
+// Keep this app dependency-free and offline-first.
+// No ads SDK, no analytics SDK, no backend SDK.
