@@ -7,10 +7,13 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import java.text.SimpleDateFormat;
@@ -36,6 +39,7 @@ public class MainActivity extends Activity {
     private static final int TEXT = Color.rgb(31, 41, 55);
     private static final int MUTED = Color.rgb(107, 114, 128);
     private static final int RED = Color.rgb(185, 28, 28);
+    private static final String[] CLASS_OPTIONS = {"Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "General Practice"};
 
     private SharedPreferences prefs;
     private final List<Formula> formulas = FormulaRepository.all();
@@ -60,20 +64,22 @@ public class MainActivity extends Activity {
     }
 
     private void showClassSelect() {
-        LinearLayout root = baseScreen("Choose your class", "The app will show formulas suitable for this level.");
-        String[] classes = {"Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "General Practice"};
-        for (String c : classes) {
-            Button b = primaryButton(c);
-            b.setOnClickListener(v -> {
-                selectedClass = c;
-                prefs.edit().putString("selected_class", c).apply();
-                showHome();
-            });
-            root.addView(b);
-        }
-        TextView note = smallText("Tip: You can change class later from the home screen.");
-        note.setPadding(dp(8), dp(16), dp(8), dp(4));
-        root.addView(note);
+        LinearLayout root = baseScreen("Choose your class", "Pick your class once. You can change it later from the top of the home screen.");
+
+        LinearLayout c = card();
+        c.addView(sectionTitle("Class"));
+        Spinner classSpinner = classSpinner(selectedClass == null ? "Class 6" : selectedClass);
+        c.addView(classSpinner);
+        c.addView(smallText("This filters formulas and areas of study for your level."));
+        root.addView(c);
+
+        Button continueBtn = primaryButton("Continue");
+        continueBtn.setOnClickListener(v -> {
+            selectedClass = classSpinner.getSelectedItem().toString();
+            prefs.edit().putString("selected_class", selectedClass).apply();
+            showHome();
+        });
+        root.addView(continueBtn);
     }
 
     private void showHome() {
@@ -87,7 +93,35 @@ public class MainActivity extends Activity {
         int completedCount = 0;
         for (Formula f : available) if (completed.contains(f.id)) completedCount++;
 
-        LinearLayout root = baseScreen("Maths Formula Memorizer", selectedClass + " • Offline • No ads • No login");
+        LinearLayout root = baseScreen("Maths Formula Memorizer", "Offline • No ads • No login");
+
+        LinearLayout classCard = card();
+        classCard.addView(sectionTitle("Class"));
+        Spinner classSpinner = classSpinner(selectedClass);
+        final boolean[] skipFirstSelection = {true};
+        classSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (skipFirstSelection[0]) {
+                    skipFirstSelection[0] = false;
+                    return;
+                }
+                String newClass = CLASS_OPTIONS[position];
+                if (!newClass.equals(selectedClass)) {
+                    selectedClass = newClass;
+                    prefs.edit().putString("selected_class", selectedClass).apply();
+                    showHome();
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                // Nothing to do.
+            }
+        });
+        classCard.addView(classSpinner);
+        classCard.addView(smallText("Change class anytime. Progress stays saved on this phone."));
+        root.addView(classCard);
 
         LinearLayout statCard = card();
         TextView progress = bigText("Progress: " + completedCount + " / " + available.size() + " lessons");
@@ -112,7 +146,7 @@ public class MainActivity extends Activity {
         actionRow.addView(progressBtn, rowWeight());
         root.addView(actionRow);
 
-        TextView unitsTitle = sectionTitle("Learning path");
+        TextView unitsTitle = sectionTitle("Choose area of study");
         root.addView(unitsTitle);
 
         LinkedHashMap<String, List<Formula>> byTopic = groupByTopic(available);
@@ -124,15 +158,11 @@ public class MainActivity extends Activity {
             LinearLayout topicCard = card();
             topicCard.addView(bigText(topic));
             topicCard.addView(smallText(done + " / " + topicFormulas.size() + " completed"));
-            Button open = secondaryButton("Open unit");
+            Button open = secondaryButton("Start area");
             open.setOnClickListener(v -> showTopic(topic));
             topicCard.addView(open);
             root.addView(topicCard);
         }
-
-        Button change = ghostButton("Change class");
-        change.setOnClickListener(v -> showClassSelect());
-        root.addView(change);
     }
 
     private void showTopic(String topic) {
@@ -420,6 +450,27 @@ public class MainActivity extends Activity {
         }
         Collections.sort(result, Comparator.comparingInt((Formula f) -> f.classNumber).thenComparing(f -> f.topic).thenComparing(f -> f.name));
         return result;
+    }
+
+    private Spinner classSpinner(String currentClass) {
+        Spinner spinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, CLASS_OPTIONS);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setSelection(classIndex(currentClass));
+        spinner.setPadding(dp(8), dp(8), dp(8), dp(8));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, dp(6), 0, dp(10));
+        spinner.setLayoutParams(lp);
+        return spinner;
+    }
+
+    private int classIndex(String className) {
+        if (className == null) return 0;
+        for (int i = 0; i < CLASS_OPTIONS.length; i++) {
+            if (CLASS_OPTIONS[i].equals(className)) return i;
+        }
+        return 0;
     }
 
     private int selectedClassNumber() {
