@@ -20,37 +20,13 @@ A simple native Android app for memorizing maths formulas with a Duolingo-style 
 - Local progress saved with SharedPreferences
 - Class selection using a drop-down menu: Class 6, 7, 8, 9, 10, General Practice
 - Choose area of study screen grouped by topic
+- Polished home screen with today goal, accuracy, streak, and weak-formula count
 - Formula lesson screen
 - 3-question quiz screen
 - Weak formulas screen
-- Progress and streak screen
+- Progress report with area-by-area progress
 - App icon vector placeholder
 - Formula database included in MainActivity.java
-
-## Product polish update
-
-Run this once after pulling latest changes:
-
-```cmd
-python scripts\apply_product_polish_update.py
-```
-
-If Python does not run, use:
-
-```cmd
-py scripts\apply_product_polish_update.py
-```
-
-This improves the product experience with:
-
-- more polished rounded cards/buttons
-- better home screen with today's goal
-- accuracy, streak, and weak formula count
-- area progress bars
-- formula status icons
-- better progress report
-- extra formulas for Class 6–10
-- improved Play Store listing draft
 
 ## How to open on Windows
 

@@ -35,6 +35,3 @@ This app does not require an account, does not show ads, and does not use intern
 4. Answer quick quiz questions
 5. Review weak formulas
 6. Track progress and streak
-
-## Paid app angle
-One-time purchase. No ads and no distractions.
