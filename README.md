@@ -2,8 +2,8 @@
 
 A simple native Android app for memorizing maths formulas with a Duolingo-style flow:
 
-1. Choose class
-2. Choose unit
+1. Choose class from a dropdown
+2. Choose area of study
 3. Learn one formula
 4. Answer 3 quick questions
 5. Repeat weak formulas
@@ -18,8 +18,8 @@ A simple native Android app for memorizing maths formulas with a Duolingo-style 
 - No analytics
 - No INTERNET permission in AndroidManifest.xml
 - Local progress saved with SharedPreferences
-- Class selection: Class 6, 7, 8, 9, 10, General Practice
-- Learning path grouped by topic
+- Class selection using a drop-down menu: Class 6, 7, 8, 9, 10, General Practice
+- Choose area of study screen grouped by topic
 - Formula lesson screen
 - 3-question quiz screen
 - Weak formulas screen
