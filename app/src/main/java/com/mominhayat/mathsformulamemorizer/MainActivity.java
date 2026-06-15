@@ -6,11 +6,13 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
@@ -58,10 +60,13 @@ public class MainActivity extends Activity {
         selectedClass = prefs.getString("selected_class", null);
         if (selectedClass == null) {
             showClassSelect();
+        } else if (isStudentNameMissing()) {
+            showNameSelect();
         } else {
             showHome();
         }
     }
+
 
     @Override
     public void onBackPressed() {
@@ -82,14 +87,54 @@ public class MainActivity extends Activity {
         continueBtn.setOnClickListener(v -> {
             selectedClass = classSpinner.getSelectedItem().toString();
             prefs.edit().putString("selected_class", selectedClass).apply();
-            showHome();
+            if (isStudentNameMissing()) {
+                showNameSelect();
+            } else {
+                showHome();
+            }
         });
         root.addView(continueBtn);
     }
 
+    private void showNameSelect() {
+        LinearLayout root = baseScreen("Student name", "The app will use the name only on this phone for friendly coaching.");
+
+        LinearLayout c = cardTint(GREEN_LIGHT);
+        c.addView(sectionTitle("What should I call the student?"));
+        EditText nameInput = new EditText(this);
+        nameInput.setSingleLine(true);
+        nameInput.setHint("Example: Ali");
+        nameInput.setText(isStudentNameMissing() ? "" : getStudentName());
+        nameInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
+        nameInput.setPadding(dp(12), dp(10), dp(12), dp(10));
+        c.addView(nameInput);
+        c.addView(smallText("No login. No internet. Name stays saved only inside this app."));
+        root.addView(c);
+
+        Button save = primaryButton("Save and start");
+        save.setOnClickListener(v -> {
+            String clean = cleanStudentName(nameInput.getText().toString());
+            prefs.edit().putString("student_name", clean).apply();
+            showHome();
+        });
+        root.addView(save);
+
+        Button skip = ghostButton("Skip for now");
+        skip.setOnClickListener(v -> {
+            prefs.edit().putString("student_name", "Student").apply();
+            showHome();
+        });
+        root.addView(skip);
+    }
+
+
     private void showHome() {
         if (selectedClass == null) {
             showClassSelect();
+            return;
+        }
+        if (isStudentNameMissing()) {
+            showNameSelect();
             return;
         }
 
@@ -100,8 +145,9 @@ public class MainActivity extends Activity {
         int accuracy = currentAccuracy();
         int weakCount = countWeakFormulas(available);
         int percent = percent(completedCount, available.size());
+        String name = getStudentName();
 
-        LinearLayout root = baseScreen("Maths Formula Memorizer", "Offline • No ads • No login");
+        LinearLayout root = baseScreen("Hi, " + name, "Maths Formula Memorizer • Offline • No ads • No login");
 
         LinearLayout classCard = card();
         classCard.addView(sectionTitle("Class"));
@@ -128,13 +174,16 @@ public class MainActivity extends Activity {
             }
         });
         classCard.addView(classSpinner);
-        classCard.addView(smallText("Change class anytime. Progress stays saved on this phone."));
+        classCard.addView(smallText("Student: " + name + " • Progress stays saved on this phone."));
+        Button changeName = ghostButton("Change student name");
+        changeName.setOnClickListener(v -> showNameSelect());
+        classCard.addView(changeName);
         root.addView(classCard);
 
         LinearLayout hero = cardTint(GREEN_LIGHT);
         hero.addView(sectionTitle("Today’s goal"));
-        hero.addView(bigText("Learn 1 formula in 60 seconds"));
-        hero.addView(smallText("Small lessons, instant feedback, and mistake review."));
+        hero.addView(bigText(name + ", learn 1 formula in 60 seconds"));
+        hero.addView(smallText("Short lessons, instant feedback, hints, and mistake review."));
         LinearLayout statsRow = row();
         statsRow.addView(statBox("Done", completedCount + "/" + available.size()), rowWeight());
         statsRow.addView(statBox("Accuracy", accuracy + "%"), rowWeight());
@@ -177,6 +226,7 @@ public class MainActivity extends Activity {
         }
     }
 
+
     private void showTopic(String topic) {
         List<Formula> available = availableFormulas();
         Set<String> completed = getCompletedSet();
@@ -211,7 +261,7 @@ public class MainActivity extends Activity {
     }
 
     private void showLesson(Formula f) {
-        LinearLayout root = baseScreen("Learn formula", selectedClass + " • " + f.topic);
+        LinearLayout root = baseScreen("Learn formula", getStudentName() + " • " + selectedClass + " • " + f.topic);
 
         LinearLayout hero = cardTint(GREEN_LIGHT);
         hero.addView(sectionTitle(topicIcon(f.topic) + " " + f.topic));
@@ -234,10 +284,16 @@ public class MainActivity extends Activity {
         quiz.setOnClickListener(v -> showQuiz(f));
         root.addView(quiz);
 
-        Button back = ghostButton("Back to area");
-        back.setOnClickListener(v -> showTopic(f.topic));
-        root.addView(back);
+        LinearLayout nav = row();
+        Button area = secondaryButton("Back to area");
+        area.setOnClickListener(v -> showTopic(f.topic));
+        Button home = secondaryButton("Home");
+        home.setOnClickListener(v -> showHome());
+        nav.addView(area, rowWeight());
+        nav.addView(home, rowWeight());
+        root.addView(nav);
     }
+
 
 
     private void showQuiz(Formula f) {
@@ -248,7 +304,7 @@ public class MainActivity extends Activity {
 
     private void renderQuestion(QuizSession session) {
         Question q = session.questions.get(session.index);
-        LinearLayout root = baseScreen("Quick quiz", session.formula.name);
+        LinearLayout root = baseScreen("Quick quiz", getStudentName() + " • " + session.formula.name);
 
         LinearLayout progressCard = cardTint(GREEN_LIGHT);
         progressCard.addView(sectionTitle("Question " + (session.index + 1) + " of " + session.questions.size()));
@@ -258,7 +314,10 @@ public class MainActivity extends Activity {
 
         LinearLayout card = card();
         card.addView(bigText(q.prompt));
-        card.addView(smallText("Tap the best answer."));
+        card.addView(smallText("Tap the best answer. You can use a hint or quit without saving progress."));
+        Button hint = secondaryButton("Show hint");
+        hint.setOnClickListener(v -> showHint(session, q));
+        card.addView(hint);
         for (String option : q.options) {
             Button b = secondaryButton(option);
             b.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
@@ -274,24 +333,34 @@ public class MainActivity extends Activity {
             card.addView(b);
         }
         root.addView(card);
+
+        Button quit = ghostButton("Quit quiz");
+        quit.setTextColor(RED);
+        quit.setOnClickListener(v -> showQuitQuizConfirm(session));
+        root.addView(quit);
     }
 
 
+
     private void showFeedback(QuizSession session, Question q, boolean correct, String chosen) {
-        LinearLayout root = baseScreen(correct ? "Correct ✓" : "Almost — review it", session.formula.name);
+        LinearLayout root = baseScreen(correct ? "Correct ✓" : "Focus — not correct", session.formula.name);
         LinearLayout card = cardTint(correct ? GREEN_LIGHT : Color.rgb(255, 251, 235));
-        TextView title = bigText(correct ? "Good job!" : "Correct answer");
+        TextView title = bigText(correct ? praiseMessage() : firmCoachMessage());
         title.setTextColor(correct ? GREEN_DARK : AMBER);
         card.addView(title);
         if (!correct) {
             card.addView(smallText("Your answer: " + chosen));
         }
+        card.addView(sectionTitle(correct ? "Why it is right" : "Correct answer"));
         if (looksLikeFormula(q.correctAnswer)) {
             card.addView(formulaText(q.correctAnswer));
         } else {
             card.addView(bigText(q.correctAnswer));
         }
         card.addView(bodyText(q.explanation));
+        if (!correct) {
+            card.addView(smallText("Read slowly, " + getStudentName() + ". You are not allowed to guess carelessly."));
+        }
         root.addView(card);
 
         Button next = primaryButton(session.index == session.questions.size() - 1 ? "Finish lesson" : "Next question");
@@ -304,7 +373,13 @@ public class MainActivity extends Activity {
             }
         });
         root.addView(next);
+
+        Button quit = ghostButton("Quit quiz");
+        quit.setTextColor(RED);
+        quit.setOnClickListener(v -> showQuitQuizConfirm(session));
+        root.addView(quit);
     }
+
 
 
     private void finishLesson(QuizSession session) {
@@ -404,7 +479,7 @@ public class MainActivity extends Activity {
         int accuracy = currentAccuracy();
         int weakCount = countWeakFormulas(available);
 
-        LinearLayout root = baseScreen("Progress report", selectedClass);
+        LinearLayout root = baseScreen("Progress report", getStudentName() + " • " + selectedClass);
         LinearLayout c = cardTint(GREEN_LIGHT);
         c.addView(bigText("Overall progress: " + percent(completedCount, available.size()) + "%"));
         addProgressBar(c, available.size(), completedCount);
@@ -413,7 +488,7 @@ public class MainActivity extends Activity {
         stats.addView(statBox("Accuracy", accuracy + "%"), rowWeight());
         stats.addView(statBox("Streak", prefs.getInt("streak", 0) + "d"), rowWeight());
         c.addView(stats);
-        c.addView(smallText("Progress is saved only on this phone. No account and no internet needed."));
+        c.addView(smallText("Student name and progress are saved only on this phone. No account and no internet needed."));
         root.addView(c);
 
         root.addView(sectionTitle("Area progress"));
@@ -434,6 +509,10 @@ public class MainActivity extends Activity {
             root.addView(weak);
         }
 
+        Button changeName = secondaryButton("Change student name");
+        changeName.setOnClickListener(v -> showNameSelect());
+        root.addView(changeName);
+
         Button reset = ghostButton("Reset progress for this phone");
         reset.setTextColor(RED);
         reset.setOnClickListener(v -> showResetConfirm());
@@ -443,6 +522,7 @@ public class MainActivity extends Activity {
         back.setOnClickListener(v -> showHome());
         root.addView(back);
     }
+
 
     private void showResetConfirm() {
         LinearLayout root = baseScreen("Reset progress?", "This only clears progress on this phone.");
@@ -637,6 +717,119 @@ public class MainActivity extends Activity {
     }
 
 
+
+    private boolean looksLikeFormula(String s) {
+        return s.contains("=") || s.contains("×") || s.contains("/") || s.contains("π") || s.contains("²") || s.contains("√");
+    }
+
+    private String stars(int correct, int total) {
+        if (correct == total) return "★★★";
+        if (correct >= Math.max(1, total - 1)) return "★★☆";
+        return "★☆☆";
+    }
+
+
+    private boolean isStudentNameMissing() {
+        String stored = prefs.getString("student_name", "");
+        return stored == null || stored.trim().isEmpty();
+    }
+
+    private String getStudentName() {
+        String stored = prefs.getString("student_name", "Student");
+        return cleanStudentName(stored);
+    }
+
+    private String cleanStudentName(String raw) {
+        if (raw == null) return "Student";
+        String clean = raw.trim().replaceAll("\s+", " ");
+        if (clean.isEmpty()) return "Student";
+        if (clean.length() > 18) clean = clean.substring(0, 18).trim();
+        return clean;
+    }
+
+    private void showHint(QuizSession session, Question q) {
+        LinearLayout root = baseScreen("Hint", getStudentName() + " • " + session.formula.name);
+        LinearLayout c = cardTint(Color.rgb(239, 246, 255));
+        c.addView(sectionTitle("Use this clue"));
+        c.addView(bodyText(hintText(session.formula, q)));
+        c.addView(smallText("Hints help memory. Try answering without looking again."));
+        root.addView(c);
+
+        Button back = primaryButton("Back to question");
+        back.setOnClickListener(v -> renderQuestion(session));
+        root.addView(back);
+
+        Button quit = ghostButton("Quit quiz");
+        quit.setTextColor(RED);
+        quit.setOnClickListener(v -> showQuitQuizConfirm(session));
+        root.addView(quit);
+    }
+
+    private String hintText(Formula f, Question q) {
+        if (q.correctAnswer.equals(f.formula)) {
+            return "Think of the formula for " + f.name + ". It belongs to " + f.topic + ". Formula shape: " + softFormulaHint(f.formula);
+        }
+        if (q.correctAnswer.equals(f.name)) {
+            return "Look at the formula symbols and ask: what quantity does this calculate? Topic: " + f.topic + ".";
+        }
+        return "Remember the meaning of the symbols in " + f.formula + ". The lesson example can guide you.";
+    }
+
+    private String softFormulaHint(String formula) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < formula.length(); i++) {
+            char ch = formula.charAt(i);
+            if (ch == '=' || ch == '+' || ch == '-' || ch == '×' || ch == '/' || ch == 'π' || ch == '²' || ch == '³' || ch == '√' || ch == '(' || ch == ')') {
+                sb.append(ch);
+            } else if (Character.isWhitespace(ch)) {
+                sb.append(' ');
+            } else {
+                sb.append('•');
+            }
+        }
+        return sb.toString();
+    }
+
+    private void showQuitQuizConfirm(QuizSession session) {
+        LinearLayout root = baseScreen("Quit quiz?", "Your current quiz answers will not be saved.");
+        LinearLayout c = cardTint(Color.rgb(255, 251, 235));
+        c.addView(bigText("Leave this quiz, " + getStudentName() + "?"));
+        c.addView(bodyText("The lesson will not be completed. You can restart it anytime from the same area."));
+        root.addView(c);
+
+        Button continueQuiz = primaryButton("Continue quiz");
+        continueQuiz.setOnClickListener(v -> renderQuestion(session));
+        root.addView(continueQuiz);
+
+        Button leave = ghostButton("Leave quiz and go home");
+        leave.setTextColor(RED);
+        leave.setOnClickListener(v -> showHome());
+        root.addView(leave);
+    }
+
+    private String praiseMessage() {
+        String name = getStudentName();
+        String[] messages = {
+                "Excellent, " + name + "!",
+                "Correct — sharp memory, " + name + "!",
+                "Good work, " + name + ". Keep going.",
+                "Nice! That formula is sticking.",
+                "Right answer. Fast and focused."
+        };
+        return messages[random.nextInt(messages.length)];
+    }
+
+    private String firmCoachMessage() {
+        String name = getStudentName();
+        String[] messages = {
+                "Not good enough yet, " + name + " — focus.",
+                "Careful, " + name + ". Do not guess.",
+                "Slow down, " + name + ". Read the formula again.",
+                "Wrong answer, but fix it now.",
+                "Focus. You can do better than guessing."
+        };
+        return messages[random.nextInt(messages.length)];
+    }
 
     private boolean looksLikeFormula(String s) {
         return s.contains("=") || s.contains("×") || s.contains("/") || s.contains("π") || s.contains("²") || s.contains("√");

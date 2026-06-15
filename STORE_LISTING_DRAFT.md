@@ -16,6 +16,8 @@ Key features:
 - Areas such as algebra, geometry, mensuration, trigonometry, finance, sequences, and probability
 - Short 1-minute lessons
 - 3-question quizzes
+- Hints during quizzes
+- Friendly coaching using the student name saved on device
 - Weak formula review
 - Progress, accuracy, and streak tracking
 - Works fully offline
