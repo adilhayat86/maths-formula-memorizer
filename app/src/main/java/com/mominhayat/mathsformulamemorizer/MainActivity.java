@@ -68,6 +68,7 @@ public class MainActivity extends Activity {
     }
 
 
+
     @Override
     public void onBackPressed() {
         showHome();
@@ -95,6 +96,38 @@ public class MainActivity extends Activity {
         });
         root.addView(continueBtn);
     }
+
+    private void showNameSelect() {
+        LinearLayout root = baseScreen("Student name", "The app will use the name only on this phone for friendly coaching.");
+
+        LinearLayout c = cardTint(GREEN_LIGHT);
+        c.addView(sectionTitle("What should I call the student?"));
+        EditText nameInput = new EditText(this);
+        nameInput.setSingleLine(true);
+        nameInput.setHint("Example: Ali");
+        nameInput.setText(isStudentNameMissing() ? "" : getStudentName());
+        nameInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
+        nameInput.setPadding(dp(12), dp(10), dp(12), dp(10));
+        c.addView(nameInput);
+        c.addView(smallText("No login. No internet. Name stays saved only inside this app."));
+        root.addView(c);
+
+        Button save = primaryButton("Save and start");
+        save.setOnClickListener(v -> {
+            String clean = cleanStudentName(nameInput.getText().toString());
+            prefs.edit().putString("student_name", clean).apply();
+            showHome();
+        });
+        root.addView(save);
+
+        Button skip = ghostButton("Skip for now");
+        skip.setOnClickListener(v -> {
+            prefs.edit().putString("student_name", "Student").apply();
+            showHome();
+        });
+        root.addView(skip);
+    }
+
 
     private void showNameSelect() {
         LinearLayout root = baseScreen("Student name", "The app will use the name only on this phone for friendly coaching.");
@@ -227,6 +260,7 @@ public class MainActivity extends Activity {
     }
 
 
+
     private void showTopic(String topic) {
         List<Formula> available = availableFormulas();
         Set<String> completed = getCompletedSet();
@@ -296,6 +330,7 @@ public class MainActivity extends Activity {
 
 
 
+
     private void showQuiz(Formula f) {
         List<Question> questions = buildQuiz(f);
         QuizSession session = new QuizSession(f, questions);
@@ -342,6 +377,7 @@ public class MainActivity extends Activity {
 
 
 
+
     private void showFeedback(QuizSession session, Question q, boolean correct, String chosen) {
         LinearLayout root = baseScreen(correct ? "Correct ✓" : "Focus — not correct", session.formula.name);
         LinearLayout card = cardTint(correct ? GREEN_LIGHT : Color.rgb(255, 251, 235));
@@ -379,6 +415,7 @@ public class MainActivity extends Activity {
         quit.setOnClickListener(v -> showQuitQuizConfirm(session));
         root.addView(quit);
     }
+
 
 
 
@@ -522,6 +559,7 @@ public class MainActivity extends Activity {
         back.setOnClickListener(v -> showHome());
         root.addView(back);
     }
+
 
 
     private void showResetConfirm() {
