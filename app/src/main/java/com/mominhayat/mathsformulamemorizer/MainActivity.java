@@ -128,39 +128,6 @@ public class MainActivity extends Activity {
         root.addView(skip);
     }
 
-
-    private void showNameSelect() {
-        LinearLayout root = baseScreen("Student name", "The app will use the name only on this phone for friendly coaching.");
-
-        LinearLayout c = cardTint(GREEN_LIGHT);
-        c.addView(sectionTitle("What should I call the student?"));
-        EditText nameInput = new EditText(this);
-        nameInput.setSingleLine(true);
-        nameInput.setHint("Example: Ali");
-        nameInput.setText(isStudentNameMissing() ? "" : getStudentName());
-        nameInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
-        nameInput.setPadding(dp(12), dp(10), dp(12), dp(10));
-        c.addView(nameInput);
-        c.addView(smallText("No login. No internet. Name stays saved only inside this app."));
-        root.addView(c);
-
-        Button save = primaryButton("Save and start");
-        save.setOnClickListener(v -> {
-            String clean = cleanStudentName(nameInput.getText().toString());
-            prefs.edit().putString("student_name", clean).apply();
-            showHome();
-        });
-        root.addView(save);
-
-        Button skip = ghostButton("Skip for now");
-        skip.setOnClickListener(v -> {
-            prefs.edit().putString("student_name", "Student").apply();
-            showHome();
-        });
-        root.addView(skip);
-    }
-
-
     private void showHome() {
         if (selectedClass == null) {
             showClassSelect();
@@ -250,7 +217,8 @@ public class MainActivity extends Activity {
 
             LinearLayout topicCard = card();
             topicCard.addView(bigText(topicIcon(topic) + " " + topic));
-            topicCard.addView(smallText(done + " / " + topicFormulas.size() + " completed" + (topicWeak > 0 ? " • " + topicWeak + " weak" : "")));
+            topicCard.addView(smallText(done + " / " + topicFormulas.size() + " completed"));
+            topicCard.addView(smallText(topicLevelSummary(topicFormulas, topicWeak)));
             addProgressBar(topicCard, topicFormulas.size(), done);
             Button open = done == topicFormulas.size() ? secondaryButton("Review area") : primaryButton("Start area");
             open.setOnClickListener(v -> showTopic(topic));
@@ -277,16 +245,14 @@ public class MainActivity extends Activity {
         summary.addView(smallText(weak == 0 ? "No weak formulas in this area yet." : weak + " formula(s) need review in this area."));
         root.addView(summary);
 
-        for (Formula f : topicFormulas) {
-            LinearLayout item = card();
-            item.addView(bigText(formulaStatus(f, completed) + " " + f.name));
-            item.addView(smallText("Class " + f.classNumber + " • " + f.topic));
-            item.addView(formulaText(f.formula));
-            item.addView(smallText(f.explanation));
-            Button open = completed.contains(f.id) ? secondaryButton("Review again") : primaryButton("Start lesson");
-            open.setOnClickListener(v -> showLesson(f));
-            item.addView(open);
-            root.addView(item);
+        if (isGeneralPractice()) {
+            for (Formula f : topicFormulas) {
+                addFormulaItem(root, f, completed);
+            }
+        } else {
+            addFormulaSection(root, "New for you", formulasWithLevel(topicFormulas, "New for you"), completed);
+            addFormulaSection(root, "Revision", formulasWithLevel(topicFormulas, "Revision"), completed);
+            addFormulaSection(root, "Challenge", formulasWithLevel(topicFormulas, "Challenge"), completed);
         }
 
         Button back = ghostButton("Back to home");
@@ -296,9 +262,13 @@ public class MainActivity extends Activity {
 
     private void showLesson(Formula f) {
         LinearLayout root = baseScreen("Learn formula", getStudentName() + " • " + selectedClass + " • " + f.topic);
+        String levelLabel = quizLevelLabel(f);
 
         LinearLayout hero = cardTint(GREEN_LIGHT);
         hero.addView(sectionTitle(topicIcon(f.topic) + " " + f.topic));
+        if (!levelLabel.isEmpty()) {
+            hero.addView(smallText(levelLabel));
+        }
         hero.addView(bigText(f.name));
         hero.addView(formulaText(f.formula));
         hero.addView(smallText("Look once, say it in your mind, then test yourself."));
@@ -339,7 +309,8 @@ public class MainActivity extends Activity {
 
     private void renderQuestion(QuizSession session) {
         Question q = session.questions.get(session.index);
-        LinearLayout root = baseScreen("Quick quiz", getStudentName() + " • " + session.formula.name);
+        String quizLabel = quizLevelLabel(session.formula);
+        LinearLayout root = baseScreen(quizLabel.isEmpty() ? "Quick quiz" : quizLabel, getStudentName() + " • " + session.formula.name);
 
         LinearLayout progressCard = cardTint(GREEN_LIGHT);
         progressCard.addView(sectionTitle("Question " + (session.index + 1) + " of " + session.questions.size()));
@@ -650,13 +621,86 @@ public class MainActivity extends Activity {
         return map;
     }
 
+    private void addFormulaSection(LinearLayout root, String title, List<Formula> list, Set<String> completed) {
+        if (list.isEmpty()) return;
+        root.addView(sectionTitle(title));
+        for (Formula f : list) {
+            addFormulaItem(root, f, completed);
+        }
+    }
+
+    private void addFormulaItem(LinearLayout root, Formula f, Set<String> completed) {
+        LinearLayout item = card();
+        item.addView(bigText(formulaStatus(f, completed) + " " + f.name));
+        item.addView(smallText(formulaMeta(f)));
+        item.addView(formulaText(f.formula));
+        item.addView(smallText(f.explanation));
+        Button open = completed.contains(f.id) ? secondaryButton("Review again") : primaryButton("Start lesson");
+        open.setOnClickListener(v -> showLesson(f));
+        item.addView(open);
+        root.addView(item);
+    }
+
+    private String formulaMeta(Formula f) {
+        String meta = "Introduced Class " + f.introducedClass + " • " + f.topic;
+        String level = formulaLevel(f);
+        return level.isEmpty() ? meta : level + " • " + meta;
+    }
+
+    private List<Formula> formulasWithLevel(List<Formula> list, String level) {
+        List<Formula> result = new ArrayList<>();
+        for (Formula f : list) {
+            if (formulaLevel(f).equals(level)) result.add(f);
+        }
+        return result;
+    }
+
+    private String topicLevelSummary(List<Formula> formulas, int weakCount) {
+        if (isGeneralPractice()) {
+            return "All: " + formulas.size() + " • Weak: " + weakCount;
+        }
+        return "New: " + countLevel(formulas, "New for you")
+                + " • Revision: " + countLevel(formulas, "Revision")
+                + " • Challenge: " + countLevel(formulas, "Challenge")
+                + " • Weak: " + weakCount;
+    }
+
+    private int countLevel(List<Formula> formulas, String level) {
+        int count = 0;
+        for (Formula f : formulas) {
+            if (formulaLevel(f).equals(level)) count++;
+        }
+        return count;
+    }
+
+    private String formulaLevel(Formula f) {
+        int selected = selectedClassNumber();
+        if (selected == 0) return "";
+        if (f.introducedClass < selected) return "Revision";
+        if (f.introducedClass == selected) return "New for you";
+        if (f.introducedClass == selected + 1) return "Challenge";
+        return "";
+    }
+
+    private String quizLevelLabel(Formula f) {
+        String level = formulaLevel(f);
+        if (level.equals("Revision")) return "Quick revision";
+        if (level.equals("New for you")) return "New for this level";
+        if (level.equals("Challenge")) return "Challenge formula";
+        return "";
+    }
+
+    private boolean isGeneralPractice() {
+        return selectedClass == null || selectedClass.equals("General Practice");
+    }
+
     private List<Formula> availableFormulas() {
         List<Formula> result = new ArrayList<>();
         int maxClass = selectedClassNumber();
         for (Formula f : formulas) {
-            if (maxClass == 0 || f.classNumber <= maxClass) result.add(f);
+            if (maxClass == 0 || f.introducedClass <= maxClass + 1) result.add(f);
         }
-        Collections.sort(result, Comparator.comparingInt((Formula f) -> f.classNumber).thenComparing(f -> f.topic).thenComparing(f -> f.name));
+        Collections.sort(result, Comparator.comparingInt((Formula f) -> f.introducedClass).thenComparing(f -> f.topic).thenComparing(f -> f.name));
         return result;
     }
 
@@ -779,7 +823,7 @@ public class MainActivity extends Activity {
 
     private String cleanStudentName(String raw) {
         if (raw == null) return "Student";
-        String clean = raw.trim().replaceAll("\s+", " ");
+        String clean = raw.trim().replaceAll("\\s+", " ");
         if (clean.isEmpty()) return "Student";
         if (clean.length() > 18) clean = clean.substring(0, 18).trim();
         return clean;
@@ -867,16 +911,6 @@ public class MainActivity extends Activity {
                 "Focus. You can do better than guessing."
         };
         return messages[random.nextInt(messages.length)];
-    }
-
-    private boolean looksLikeFormula(String s) {
-        return s.contains("=") || s.contains("×") || s.contains("/") || s.contains("π") || s.contains("²") || s.contains("√");
-    }
-
-    private String stars(int correct, int total) {
-        if (correct == total) return "★★★";
-        if (correct >= Math.max(1, total - 1)) return "★★☆";
-        return "★☆☆";
     }
 
     private LinearLayout cardTint(int color) {
@@ -1072,7 +1106,7 @@ public class MainActivity extends Activity {
 
     private static class Formula {
         final String id;
-        final int classNumber;
+        final int introducedClass;
         final String topic;
         final String name;
         final String formula;
@@ -1082,9 +1116,9 @@ public class MainActivity extends Activity {
         final String[] meaningOptions;
         final String meaningAnswer;
 
-        Formula(String id, int classNumber, String topic, String name, String formula, String explanation, String example, String meaningQuestion, String[] meaningOptions, String meaningAnswer) {
+        Formula(String id, int introducedClass, String topic, String name, String formula, String explanation, String example, String meaningQuestion, String[] meaningOptions, String meaningAnswer) {
             this.id = id;
-            this.classNumber = classNumber;
+            this.introducedClass = introducedClass;
             this.topic = topic;
             this.name = name;
             this.formula = formula;
@@ -1212,9 +1246,7 @@ public class MainActivity extends Activity {
             f.add(new Formula("c9_ap_common_difference", 9, "Sequences", "Common Difference", "d = a₂ - a₁", "The common difference is the gap between consecutive AP terms.", "For 5, 8, 11, d = 3.", "What does consecutive mean?", new String[]{"Next to each other", "Very large", "Squared", "Divided"}, "Next to each other"));
 
             // Extra Class 10 formulas
-            f.add(new Formula("c10_compound_interest", 10, "Finance", "Compound Amount", "A = P(1 + R/100)ⁿ", "Compound amount grows by percentage each period.", "If P=1000, R=10, n=2, A=1210.", "What does n mean?", new String[]{"Number of periods", "New amount only", "Negative value", "Numerator"}, "Number of periods"));
             f.add(new Formula("c10_compound_interest_ci", 10, "Finance", "Compound Interest", "CI = A - P", "Compound interest is final amount minus principal.", "If A=1210 and P=1000, CI=210.", "What does P mean?", new String[]{"Principal", "Profit", "Percentage", "Perimeter"}, "Principal"));
-            f.add(new Formula("c10_probability", 10, "Probability", "Probability", "P(E) = Favourable / Total", "Probability compares favourable outcomes with total outcomes.", "For one head in a coin toss, P=1/2.", "Probability is usually between what values?", new String[]{"0 and 1", "1 and 10", "10 and 100", "Only negative"}, "0 and 1"));
             f.add(new Formula("c10_quadratic_axis", 10, "Quadratic Equations", "Axis of Symmetry", "x = -b / 2a", "This gives the vertical symmetry line of y = ax² + bx + c.", "For y=x²-4x+3, x=2.", "Axis of symmetry is a what?", new String[]{"Line", "Area", "Volume", "Ratio"}, "Line"));
         }
     }
