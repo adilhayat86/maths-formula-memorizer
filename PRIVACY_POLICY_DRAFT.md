@@ -1,4 +1,4 @@
-# Privacy Policy Draft
+# Privacy Policy
 
 Maths Formula Memorizer Offline is designed to work fully offline.
 
@@ -13,7 +13,7 @@ Progress, quiz results, weak formulas, and streak information are saved locally 
 
 If the app is deleted, local progress may be removed from the device.
 
-Contact: add-your-support-email-here
+Contact: adilhayat@yahoo.com
 
 
 ## Student name

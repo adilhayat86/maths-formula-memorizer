@@ -774,6 +774,11 @@ public class MainActivity extends Activity {
         learning.addView(smallText("Class progress includes revision from earlier classes and one-class-ahead challenge formulas."));
         root.addView(learning);
 
+        LinearLayout contact = card();
+        contact.addView(sectionTitle("Contact"));
+        contact.addView(bodyText("For privacy questions, contact: adilhayat@yahoo.com"));
+        root.addView(contact);
+
         Button back = primaryButton("Back to home");
         back.setOnClickListener(v -> showHome());
         root.addView(back);
