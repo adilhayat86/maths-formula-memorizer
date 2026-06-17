@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <string name="app_language">ar</string>
+    <string name="student_name">dddr</string>
+    <string name="selected_class">Class 7</string>
+    <int name="total_answered" value="0" />
+    <int name="total_correct" value="0" />
+    <set name="completed" />
+    <int name="streak" value="0" />
+</map>

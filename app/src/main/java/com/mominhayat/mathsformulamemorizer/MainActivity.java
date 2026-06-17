@@ -63,14 +63,24 @@ public class MainActivity extends Activity {
     private static final int SCREEN_RESET_ALL_CONFIRM = 11;
     private static final int SCREEN_RESET_SCOPE_CONFIRM = 12;
     private static final int SCREEN_ABOUT = 13;
+    private static final int SCREEN_LANGUAGE = 14;
     private static final String STATE_SCREEN = "screen";
     private static final String STATE_TOPIC = "topic";
     private static final String STATE_FORMULA_ID = "formula_id";
+    private static final String PREF_LANGUAGE = "app_language";
+    private static final String LANG_EN = "en";
+    private static final String LANG_ES = "es";
+    private static final String LANG_HI = "hi";
+    private static final String LANG_UR = "ur";
+    private static final String LANG_AR = "ar";
+    private static final String LANG_FR = "fr";
+    private static final String[] LANGUAGE_CODES = {LANG_EN, LANG_ES, LANG_HI, LANG_UR, LANG_AR, LANG_FR};
 
     private SharedPreferences prefs;
     private final List<Formula> formulas = FormulaRepository.all();
     private final Random random = new Random();
     private String selectedClass;
+    private String appLanguage = LANG_EN;
     private int currentScreen = SCREEN_HOME;
     private String currentTopic;
     private Formula currentFormula;
@@ -82,6 +92,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("maths_formula_progress", MODE_PRIVATE);
         selectedClass = prefs.getString("selected_class", null);
+        appLanguage = prefs.getString(PREF_LANGUAGE, LANG_EN);
         if (savedInstanceState != null && restoreSavedScreen(savedInstanceState)) {
             return;
         }
@@ -112,7 +123,11 @@ public class MainActivity extends Activity {
         Formula savedFormula = findFormulaById(state.getString(STATE_FORMULA_ID));
 
         if (selectedClass == null) {
-            showClassSelect();
+            if (savedScreen == SCREEN_LANGUAGE) {
+                showLanguageSelect();
+            } else {
+                showClassSelect();
+            }
             return true;
         }
         if (savedScreen == SCREEN_CLASS_SELECT) {
@@ -144,6 +159,10 @@ public class MainActivity extends Activity {
         }
         if (savedScreen == SCREEN_ABOUT) {
             showAboutPrivacy();
+            return true;
+        }
+        if (savedScreen == SCREEN_LANGUAGE) {
+            showLanguageSelect();
             return true;
         }
         showHome();
@@ -207,7 +226,7 @@ public class MainActivity extends Activity {
             }
             return;
         }
-        if (currentScreen == SCREEN_PROGRESS || currentScreen == SCREEN_RESET_ALL_CONFIRM || currentScreen == SCREEN_ABOUT) {
+        if (currentScreen == SCREEN_PROGRESS || currentScreen == SCREEN_RESET_ALL_CONFIRM || currentScreen == SCREEN_ABOUT || currentScreen == SCREEN_LANGUAGE) {
             showHome();
             return;
         }
@@ -218,12 +237,16 @@ public class MainActivity extends Activity {
         currentScreen = SCREEN_CLASS_SELECT;
         currentQuizSession = null;
         quizContinueAction = null;
-        LinearLayout root = baseScreen("Choose class", "Tap a class to continue.");
+        LinearLayout root = baseScreen(tr("Choose class"), tr("Tap a class to continue."));
+
+        Button language = compactSecondaryButton(tr("Language") + ": " + languageName(appLanguage));
+        language.setOnClickListener(v -> showLanguageSelect());
+        root.addView(language);
 
         LinearLayout hero = cardTint(GREEN_LIGHT);
-        hero.addView(sectionTitle("Maths Formula Memorizer"));
-        hero.addView(bigText("Pick your school level"));
-        hero.addView(smallText("Each class includes revision from earlier levels and a small next-level challenge."));
+        hero.addView(sectionTitle(tr("Maths Formula Memorizer")));
+        hero.addView(bigText(tr("Pick your school level")));
+        hero.addView(smallText(tr("Each class includes revision from earlier levels and a small next-level challenge.")));
         root.addView(hero);
 
         for (String className : VISIBLE_CLASSES) {
@@ -232,7 +255,7 @@ public class MainActivity extends Activity {
             root.addView(classButton);
         }
 
-        root.addView(smallText("You can edit this later from the home screen."));
+        root.addView(smallText(tr("You can edit this later from the home screen.")));
     }
 
     private void chooseClass(String className) {
@@ -249,23 +272,28 @@ public class MainActivity extends Activity {
         currentScreen = SCREEN_NAME_SELECT;
         currentQuizSession = null;
         quizContinueAction = null;
-        LinearLayout root = baseScreen("What should I call you?", "Saved only on this phone. You can skip and start right away.");
+        LinearLayout root = baseScreen(tr("What should I call you?"), tr("Saved only on this phone. You can skip and start right away."));
+
+        Button language = compactSecondaryButton(tr("Language") + ": " + languageName(appLanguage));
+        language.setOnClickListener(v -> showLanguageSelect());
+        root.addView(language);
 
         LinearLayout c = cardTint(GREEN_LIGHT);
-        c.addView(sectionTitle("Add a friendly name"));
-        c.addView(smallText("This helps the app make coaching messages feel personal."));
+        c.addView(sectionTitle(tr("Add a friendly name")));
+        c.addView(smallText(tr("This helps the app make coaching messages feel personal.")));
         EditText nameInput = new EditText(this);
         nameInput.setSingleLine(true);
-        nameInput.setHint("Example: Ali");
-        nameInput.setContentDescription("Student name");
+        nameInput.setHint(tr("Example: Ali"));
+        nameInput.setContentDescription(tr("Student name"));
         nameInput.setText(isStudentNameMissing() ? "" : getStudentName());
         nameInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
         nameInput.setPadding(dp(12), dp(10), dp(12), dp(10));
+        applyDirection(nameInput);
         c.addView(nameInput);
-        c.addView(smallText("Saved only on this phone. No login. No internet."));
+        c.addView(smallText(tr("Saved only on this phone. No login. No internet.")));
         root.addView(c);
 
-        Button save = primaryButton("Save and start learning");
+        Button save = primaryButton(tr("Save and start learning"));
         save.setOnClickListener(v -> {
             String clean = cleanStudentName(nameInput.getText().toString());
             prefs.edit().putString("student_name", clean).apply();
@@ -273,12 +301,53 @@ public class MainActivity extends Activity {
         });
         root.addView(save);
 
-        Button skip = ghostButton("Skip for now");
+        Button skip = ghostButton(tr("Skip for now"));
         skip.setOnClickListener(v -> {
             prefs.edit().putString("student_name", "Student").apply();
             showHome();
         });
         root.addView(skip);
+    }
+
+    private void showLanguageSelect() {
+        currentScreen = SCREEN_LANGUAGE;
+        currentQuizSession = null;
+        quizContinueAction = null;
+        LinearLayout root = baseScreen(tr("Choose language"), tr("This changes app buttons and headings only. Maths content stays in English for accuracy."));
+
+        LinearLayout c = cardTint(GREEN_LIGHT);
+        c.addView(sectionTitle(tr("App language")));
+        c.addView(smallText(tr("You can change this anytime from Home.")));
+        root.addView(c);
+
+        for (String code : LANGUAGE_CODES) {
+            boolean selected = code.equals(appLanguage);
+            Button choice = selected ? primaryButton(languageName(code) + "  " + tr("Selected")) : secondaryButton(languageName(code));
+            choice.setOnClickListener(v -> {
+                appLanguage = code;
+                prefs.edit().putString(PREF_LANGUAGE, appLanguage).apply();
+                if (selectedClass == null) {
+                    showClassSelect();
+                } else if (isStudentNameMissing()) {
+                    showNameSelect();
+                } else {
+                    showHome();
+                }
+            });
+            root.addView(choice);
+        }
+
+        Button back = ghostButton(selectedClass == null ? tr("Back to class") : tr("Back to home"));
+        back.setOnClickListener(v -> {
+            if (selectedClass == null) {
+                showClassSelect();
+            } else if (isStudentNameMissing()) {
+                showNameSelect();
+            } else {
+                showHome();
+            }
+        });
+        root.addView(back);
     }
 
     private void showHome() {
@@ -309,17 +378,17 @@ public class MainActivity extends Activity {
 
         LinearLayout root = blankScreen();
 
-        TextView brand = metaText("Maths Formula Memorizer");
-        brand.setGravity(Gravity.RIGHT);
+        TextView brand = metaText(tr("Maths Formula Memorizer"));
+        brand.setGravity(isRtlLanguage() ? Gravity.LEFT : Gravity.RIGHT);
         root.addView(brand);
 
         LinearLayout greetingRow = row();
         greetingRow.setGravity(Gravity.CENTER_VERTICAL);
         greetingRow.setMinimumHeight(dp(58));
-        TextView greeting = screenTitle("Hi, " + name);
+        TextView greeting = screenTitle(trf("Hi, %s", name));
         greetingRow.addView(greeting, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        Button editName = tinyActionButton("Edit");
-        editName.setContentDescription("Edit student name");
+        Button editName = tinyActionButton(tr("Edit"));
+        editName.setContentDescription(tr("Edit student name"));
         editName.setOnClickListener(v -> showNameSelect());
         greetingRow.addView(editName);
         root.addView(greetingRow);
@@ -327,40 +396,44 @@ public class MainActivity extends Activity {
         LinearLayout classRow = row();
         classRow.setGravity(Gravity.CENTER_VERTICAL);
         classRow.setMinimumHeight(dp(48));
-        TextView classText = classTitle(selectedClass);
+        TextView classText = classTitle(displayClass(selectedClass));
         classRow.addView(classText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        Button editClass = tinyActionButton("Edit");
-        editClass.setContentDescription("Change class");
+        Button editClass = tinyActionButton(tr("Edit"));
+        editClass.setContentDescription(tr("Change class"));
         editClass.setOnClickListener(v -> showClassSelect());
         classRow.addView(editClass);
         classRow.setPadding(0, 0, 0, dp(8));
         root.addView(classRow);
 
+        Button language = compactSecondaryButton(tr("Language") + ": " + languageName(appLanguage));
+        language.setOnClickListener(v -> showLanguageSelect());
+        root.addView(language);
+
         LinearLayout hero = cardTint(Color.rgb(232, 252, 244));
-        hero.addView(sectionTitle(selectedClass + " cumulative progress"));
+        hero.addView(sectionTitle(trf("%s cumulative progress", displayClass(selectedClass))));
         hero.addView(bigText(cumulativeProgressTitle(completedCount, available.size())));
-        hero.addView(smallText("Revision, new formulas, and one-step challenges move together here."));
+        hero.addView(smallText(tr("Revision, new formulas, and one-step challenges move together here.")));
         hero.addView(glowProgressBar(available.size(), completedCount));
-        hero.addView(levelRail("Start", "Practice", "Confident", "Mastered"));
-        Button resetClass = smallResetButton("Reset " + selectedClass + " progress");
+        hero.addView(levelRail(tr("Start"), tr("Practice"), tr("Confident"), tr("Mastered")));
+        Button resetClass = smallResetButton(trf("Reset %s progress", displayClass(selectedClass)));
         resetClass.setOnClickListener(v -> showResetScopeConfirm(
-                "Reset " + selectedClass + " progress?",
-                "This clears completed lessons and mistake marks for formulas visible in " + selectedClass + ".",
+                trf("Reset %s progress?", displayClass(selectedClass)),
+                trf("This clears completed lessons and mistake marks for formulas visible in %s.", displayClass(selectedClass)),
                 available,
                 true
         ));
         hero.addView(resetClass);
         root.addView(hero);
 
-        Button weak = secondaryButton("Mistake review (" + mistakeCount + ")");
+        Button weak = secondaryButton(trf("Mistake review (%d)", mistakeCount));
         weak.setOnClickListener(v -> showWeakFormulas());
         root.addView(weak);
 
-        Button about = ghostButton("Privacy & app info");
+        Button about = ghostButton(tr("Privacy & app info"));
         about.setOnClickListener(v -> showAboutPrivacy());
         root.addView(about);
 
-        TextView unitsTitle = sectionTitle("Choose a topic");
+        TextView unitsTitle = sectionTitle(tr("Choose a topic"));
         root.addView(unitsTitle);
 
         LinkedHashMap<String, List<Formula>> byTopic = groupByTopic(available);
@@ -371,20 +444,20 @@ public class MainActivity extends Activity {
 
             LinearLayout topicCard = card();
             topicCard.addView(glowProgressBar(topicFormulas.size(), done));
-            topicCard.addView(levelRail("Begin", "Learn", "Strong", "Ready"));
-            Button resetArea = smallResetButton("Reset topic");
-            resetArea.setContentDescription("Reset progress for " + topic);
+            topicCard.addView(levelRail(tr("Begin"), tr("Learn"), tr("Strong"), tr("Ready")));
+            Button resetArea = smallResetButton(tr("Reset topic"));
+            resetArea.setContentDescription(trf("Reset progress for %s", topic));
             resetArea.setOnClickListener(v -> showResetScopeConfirm(
-                    "Reset " + topic + "?",
-                    "This clears completed lessons and mistake marks for this topic only.",
+                    trf("Reset %s?", topic),
+                    tr("This clears completed lessons and mistake marks for this topic only."),
                     topicFormulas,
                     false
             ));
             topicCard.addView(resetArea);
             topicCard.addView(sectionTitle(topicIcon(topic) + " " + topic));
             topicCard.addView(smallText(areaProgressMessage(topicFormulas, done, topicWeak)));
-            Button open = done == topicFormulas.size() ? secondaryButton("Review topic") : compactPrimaryButton("Open topic");
-            open.setContentDescription((done == topicFormulas.size() ? "Review " : "Open ") + topic);
+            Button open = done == topicFormulas.size() ? secondaryButton(tr("Review topic")) : compactPrimaryButton(tr("Open topic"));
+            open.setContentDescription(done == topicFormulas.size() ? trf("Review %s", topic) : trf("Open %s", topic));
             open.setOnClickListener(v -> showTopic(topic));
             topicCard.addView(open);
             root.addView(topicCard);
@@ -406,12 +479,12 @@ public class MainActivity extends Activity {
         int done = topicCompleted(topicFormulas, completed);
         int weak = countWeakFormulas(topicFormulas);
 
-        LinearLayout root = baseScreen(topicIcon(topic) + " " + topic, selectedClass + " • 1-minute formula lessons");
+        LinearLayout root = baseScreen(topicIcon(topic) + " " + topic, trf("%s / 1-minute formula lessons", displayClass(selectedClass)));
 
         LinearLayout summary = cardTint(GREEN_LIGHT);
-        summary.addView(bigText(done + " / " + topicFormulas.size() + " formulas completed"));
+        summary.addView(bigText(trf("%d / %d formulas completed", done, topicFormulas.size())));
         addProgressBar(summary, topicFormulas.size(), done);
-        summary.addView(smallText(weak == 0 ? "No weak formulas in this topic yet." : weak + " formula(s) need review in this topic."));
+        summary.addView(smallText(weak == 0 ? tr("No weak formulas in this topic yet.") : trf("%d formula(s) need review in this topic.", weak)));
         root.addView(summary);
 
         if (isGeneralPractice()) {
@@ -419,12 +492,12 @@ public class MainActivity extends Activity {
                 addFormulaItem(root, f, completed);
             }
         } else {
-            addFormulaSection(root, "New for you", formulasWithLevel(topicFormulas, "New for you"), completed);
-            addFormulaSection(root, "Revision", formulasWithLevel(topicFormulas, "Revision"), completed);
-            addFormulaSection(root, "Challenge", formulasWithLevel(topicFormulas, "Challenge"), completed);
+            addFormulaSection(root, tr("New for you"), formulasWithLevel(topicFormulas, "New for you"), completed);
+            addFormulaSection(root, tr("Revision"), formulasWithLevel(topicFormulas, "Revision"), completed);
+            addFormulaSection(root, tr("Challenge"), formulasWithLevel(topicFormulas, "Challenge"), completed);
         }
 
-        Button back = ghostButton("Back to home");
+        Button back = ghostButton(tr("Back to home"));
         back.setOnClickListener(v -> showHome());
         root.addView(back);
     }
@@ -438,13 +511,13 @@ public class MainActivity extends Activity {
         LinearLayout root = blankScreen();
         String levelLabel = quizLevelLabel(f);
 
-        TextView context = metaText(getStudentName() + " • " + selectedClass + " • " + f.topic);
-        context.setText(getStudentName() + " / " + selectedClass + " / " + f.topic);
+        TextView context = metaText(getStudentName() + " / " + displayClass(selectedClass) + " / " + f.topic);
+        context.setText(getStudentName() + " / " + displayClass(selectedClass) + " / " + f.topic);
 
         LinearLayout nav = row();
-        Button area = topNavButton("Back to topic");
+        Button area = topNavButton(tr("Back to topic"));
         area.setOnClickListener(v -> showTopic(f.topic));
-        Button home = topNavButton("Home page");
+        Button home = topNavButton(tr("Home page"));
         home.setOnClickListener(v -> showHome());
         nav.addView(area, rowWeight());
         nav.addView(home, rowWeight());
@@ -468,7 +541,7 @@ public class MainActivity extends Activity {
         hero.addView(lessonTitle(f.name));
         hero.addView(compactFormulaBox(f.formula));
 
-        TextView visual = compactLessonText("Visual memory");
+        TextView visual = compactLessonText(tr("Visual memory"));
         visual.setTextColor(GREEN_DARK);
         visual.setTypeface(Typeface.DEFAULT_BOLD);
         visual.setPadding(0, dp(4), 0, dp(2));
@@ -479,12 +552,12 @@ public class MainActivity extends Activity {
         diagramLp.setMargins(0, dp(2), 0, dp(6));
         diagram.setLayoutParams(diagramLp);
         hero.addView(diagram);
-        hero.addView(lessonInfoBlock("Meaning", f.explanation));
-        hero.addView(lessonInfoBlock("Example", f.example));
+        hero.addView(lessonInfoBlock(tr("Meaning"), f.explanation));
+        hero.addView(lessonInfoBlock(tr("Example"), f.example));
         root.addView(hero);
 
-        Button quiz = compactPrimaryButton("I remember it — start quiz");
-        quiz.setText("Start quiz");
+        Button quiz = compactPrimaryButton(tr("Start quiz"));
+        quiz.setText(tr("Start quiz"));
         quiz.setOnClickListener(v -> showQuiz(f));
         root.addView(quiz);
     }
@@ -506,23 +579,25 @@ public class MainActivity extends Activity {
         quizContinueAction = () -> renderQuestion(session);
         Question q = session.questions.get(session.index);
         String quizLabel = quizLevelLabel(session.formula);
-        LinearLayout root = baseScreen(quizLabel.isEmpty() ? "Quick quiz" : quizLabel, getStudentName() + " • " + session.formula.name);
+        LinearLayout root = baseScreen(quizLabel.isEmpty() ? tr("Quick quiz") : quizLabel, getStudentName() + " / " + session.formula.name);
 
         LinearLayout progressCard = cardTint(GREEN_LIGHT);
-        progressCard.addView(sectionTitle("Question " + (session.index + 1) + " of " + session.questions.size()));
+        progressCard.addView(sectionTitle(trf("Question %d of %d", session.index + 1, session.questions.size())));
         addProgressBar(progressCard, session.questions.size(), session.index + 1);
-        progressCard.addView(smallText("Score so far: " + session.correct + " correct"));
+        progressCard.addView(smallText(trf("Score so far: %d correct", session.correct)));
         root.addView(progressCard);
 
         LinearLayout card = card();
         card.addView(bigText(q.prompt));
-        card.addView(smallText("Tap the best answer. You can use a hint or quit without saving progress."));
-        Button hint = secondaryButton("Show hint");
+        card.addView(smallText(tr("Tap the best answer. You can use a hint or quit without saving progress.")));
+        Button hint = secondaryButton(tr("Show hint"));
         hint.setOnClickListener(v -> showHint(session, q));
         card.addView(hint);
         for (String option : q.options) {
             Button b = secondaryButton(option);
             b.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            b.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+            b.setTextDirection(View.TEXT_DIRECTION_LTR);
             b.setOnClickListener(v -> {
                 boolean correct = option.equals(q.correctAnswer);
                 if (correct) {
@@ -536,7 +611,7 @@ public class MainActivity extends Activity {
         }
         root.addView(card);
 
-        Button quit = ghostButton("Quit quiz");
+        Button quit = ghostButton(tr("Quit quiz"));
         quit.setTextColor(RED);
         quit.setOnClickListener(v -> showQuitQuizConfirm(session, () -> renderQuestion(session)));
         root.addView(quit);
@@ -551,15 +626,15 @@ public class MainActivity extends Activity {
         currentFormula = session.formula;
         currentTopic = session.formula.topic;
         quizContinueAction = () -> showFeedback(session, q, correct, chosen);
-        LinearLayout root = baseScreen(correct ? "Correct ✓" : "Focus — not correct", session.formula.name);
+        LinearLayout root = baseScreen(correct ? tr("Correct") : tr("Focus - not correct"), session.formula.name);
         LinearLayout card = cardTint(correct ? GREEN_LIGHT : Color.rgb(255, 251, 235));
         TextView title = bigText(correct ? praiseMessage() : firmCoachMessage());
         title.setTextColor(correct ? GREEN_DARK : AMBER);
         card.addView(title);
         if (!correct) {
-            card.addView(smallText("Your answer: " + chosen));
+            card.addView(smallText(trf("Your answer: %s", chosen)));
         }
-        card.addView(sectionTitle(correct ? "Why it is right" : "Correct answer"));
+        card.addView(sectionTitle(correct ? tr("Why it is right") : tr("Correct answer")));
         if (looksLikeFormula(q.correctAnswer)) {
             card.addView(formulaText(q.correctAnswer));
         } else {
@@ -567,11 +642,11 @@ public class MainActivity extends Activity {
         }
         card.addView(bodyText(q.explanation));
         if (!correct) {
-            card.addView(smallText("Read slowly, " + getStudentName() + ". You are not allowed to guess carelessly."));
+            card.addView(smallText(trf("Read slowly, %s. You are not allowed to guess carelessly.", getStudentName())));
         }
         root.addView(card);
 
-        Button next = primaryButton(session.index == session.questions.size() - 1 ? "Finish lesson" : "Next question");
+        Button next = primaryButton(session.index == session.questions.size() - 1 ? tr("Finish lesson") : tr("Next question"));
         next.setOnClickListener(v -> {
             session.index++;
             if (session.index >= session.questions.size()) {
@@ -582,7 +657,7 @@ public class MainActivity extends Activity {
         });
         root.addView(next);
 
-        Button quit = ghostButton("Quit quiz");
+        Button quit = ghostButton(tr("Quit quiz"));
         quit.setTextColor(RED);
         quit.setOnClickListener(v -> showQuitQuizConfirm(session, () -> showFeedback(session, q, correct, chosen)));
         root.addView(quit);
@@ -617,29 +692,29 @@ public class MainActivity extends Activity {
         editor.apply();
 
         boolean perfect = session.correct == session.questions.size();
-        LinearLayout root = baseScreen(perfect ? "Mastered ✓" : "Added to review", f.name);
+        LinearLayout root = baseScreen(perfect ? tr("Mastered") : tr("Added to review"), f.name);
         LinearLayout card = cardTint(perfect ? GREEN_LIGHT : Color.rgb(255, 251, 235));
-        card.addView(bigText(stars(session.correct, session.questions.size()) + "  Score: " + session.correct + " / " + session.questions.size()));
+        card.addView(bigText(stars(session.correct, session.questions.size()) + "  " + trf("Score: %d / %d", session.correct, session.questions.size())));
         card.addView(formulaText(f.formula));
         if (perfect) {
-            card.addView(bodyText("Excellent. This formula is marked as mastered."));
+            card.addView(bodyText(tr("Excellent. This formula is marked as mastered.")));
         } else {
-            card.addView(bodyText("Good practice. This formula will appear in mistake review until it becomes easy."));
+            card.addView(bodyText(tr("Good practice. This formula will appear in mistake review until it becomes easy.")));
         }
-        card.addView(smallText("One formula at a time builds long-term memory."));
+        card.addView(smallText(tr("One formula at a time builds long-term memory.")));
         root.addView(card);
 
-        Button continueBtn = primaryButton("Next formula");
+        Button continueBtn = primaryButton(tr("Next formula"));
         continueBtn.setOnClickListener(v -> showLesson(nextFormula(availableFormulas(), getCompletedSet())));
         root.addView(continueBtn);
 
         if (!perfect) {
-            Button review = secondaryButton("Review mistakes");
+            Button review = secondaryButton(tr("Review mistakes"));
             review.setOnClickListener(v -> showWeakFormulas());
             root.addView(review);
         }
 
-        Button home = ghostButton("Home");
+        Button home = ghostButton(tr("Home"));
         home.setOnClickListener(v -> showHome());
         root.addView(home);
     }
@@ -657,18 +732,18 @@ public class MainActivity extends Activity {
         }
         Collections.sort(weak, (a, b) -> prefs.getInt("wrong_" + b.id, 0) - prefs.getInt("wrong_" + a.id, 0));
 
-        LinearLayout root = baseScreen("Mistake review", "Practice formulas you forgot before.");
+        LinearLayout root = baseScreen(tr("Mistake review"), tr("Practice formulas you forgot before."));
         if (weak.isEmpty()) {
             LinearLayout c = cardTint(GREEN_LIGHT);
-            c.addView(bigText("No weak formulas yet ✓"));
-            c.addView(bodyText("Mistakes will appear here automatically after quizzes."));
-            c.addView(smallText("Keep practicing one formula per day."));
+            c.addView(bigText(tr("No weak formulas yet")));
+            c.addView(bodyText(tr("Mistakes will appear here automatically after quizzes.")));
+            c.addView(smallText(tr("Keep practicing one formula per day.")));
             root.addView(c);
         } else {
             LinearLayout top = cardTint(Color.rgb(255, 251, 235));
-            top.addView(bigText("Review the hardest one first"));
-            top.addView(smallText("Weak formulas are sorted by number of mistakes."));
-            Button start = primaryButton("Start mistake review");
+            top.addView(bigText(tr("Review the hardest one first")));
+            top.addView(smallText(tr("Weak formulas are sorted by number of mistakes.")));
+            Button start = primaryButton(tr("Start mistake review"));
             start.setOnClickListener(v -> showLesson(weak.get(0)));
             top.addView(start);
             root.addView(top);
@@ -676,15 +751,15 @@ public class MainActivity extends Activity {
             for (Formula f : weak) {
                 LinearLayout c = card();
                 c.addView(bigText("⚠ " + f.name));
-                c.addView(smallText(f.topic + " • Mistakes: " + prefs.getInt("wrong_" + f.id, 0)));
+                c.addView(smallText(f.topic + " / " + trf("Mistakes: %d", prefs.getInt("wrong_" + f.id, 0))));
                 c.addView(formulaText(f.formula));
-                Button practice = secondaryButton("Practice again");
+                Button practice = secondaryButton(tr("Practice again"));
                 practice.setOnClickListener(v -> showLesson(f));
                 c.addView(practice);
                 root.addView(c);
             }
         }
-        Button back = ghostButton("Back to home");
+        Button back = ghostButton(tr("Back to home"));
         back.setOnClickListener(v -> showHome());
         root.addView(back);
     }
@@ -703,46 +778,46 @@ public class MainActivity extends Activity {
         int accuracy = currentAccuracy();
         int weakCount = countWeakFormulas(available);
 
-        LinearLayout root = baseScreen("Progress report", getStudentName() + " • " + selectedClass);
+        LinearLayout root = baseScreen(tr("Progress report"), getStudentName() + " / " + displayClass(selectedClass));
         LinearLayout c = cardTint(GREEN_LIGHT);
-        c.addView(bigText("Overall progress: " + percent(completedCount, available.size()) + "%"));
+        c.addView(bigText(trf("Overall progress: %d%%", percent(completedCount, available.size()))));
         addProgressBar(c, available.size(), completedCount);
         LinearLayout stats = row();
-        stats.addView(statBox("Lessons", completedCount + "/" + available.size()), rowWeight());
-        stats.addView(statBox("Accuracy", accuracy + "%"), rowWeight());
-        stats.addView(statBox("Streak", prefs.getInt("streak", 0) + "d"), rowWeight());
+        stats.addView(statBox(tr("Lessons"), completedCount + "/" + available.size()), rowWeight());
+        stats.addView(statBox(tr("Accuracy"), accuracy + "%"), rowWeight());
+        stats.addView(statBox(tr("Streak"), prefs.getInt("streak", 0) + "d"), rowWeight());
         c.addView(stats);
-        c.addView(smallText("Student name and progress are saved only on this phone. No account and no internet needed."));
+        c.addView(smallText(tr("Student name and progress are saved only on this phone. No account and no internet needed.")));
         root.addView(c);
 
-        root.addView(sectionTitle("Topic progress"));
+        root.addView(sectionTitle(tr("Topic progress")));
         LinkedHashMap<String, List<Formula>> byTopic = groupByTopic(available);
         for (String topic : byTopic.keySet()) {
             List<Formula> topicFormulas = byTopic.get(topic);
             int done = topicCompleted(topicFormulas, completed);
             LinearLayout area = card();
             area.addView(bigText(topicIcon(topic) + " " + topic));
-            area.addView(smallText(done + " / " + topicFormulas.size() + " completed"));
+            area.addView(smallText(trf("%d / %d completed", done, topicFormulas.size())));
             addProgressBar(area, topicFormulas.size(), done);
             root.addView(area);
         }
 
         if (weakCount > 0) {
-            Button weak = primaryButton("Review " + weakCount + " weak formula(s)");
+            Button weak = primaryButton(trf("Review %d weak formula(s)", weakCount));
             weak.setOnClickListener(v -> showWeakFormulas());
             root.addView(weak);
         }
 
-        Button changeName = secondaryButton("Change student name");
+        Button changeName = secondaryButton(tr("Change student name"));
         changeName.setOnClickListener(v -> showNameSelect());
         root.addView(changeName);
 
-        Button reset = ghostButton("Reset progress for this phone");
+        Button reset = ghostButton(tr("Reset progress for this phone"));
         reset.setTextColor(RED);
         reset.setOnClickListener(v -> showResetConfirm());
         root.addView(reset);
 
-        Button back = primaryButton("Back to home");
+        Button back = primaryButton(tr("Back to home"));
         back.setOnClickListener(v -> showHome());
         root.addView(back);
     }
@@ -754,32 +829,32 @@ public class MainActivity extends Activity {
         currentQuizSession = null;
         quizContinueAction = null;
 
-        LinearLayout root = baseScreen("Privacy & app info", "Clear facts for students and parents.");
+        LinearLayout root = baseScreen(tr("Privacy & app info"), tr("Clear facts for students and parents."));
 
         LinearLayout privacy = cardTint(GREEN_LIGHT);
-        privacy.addView(sectionTitle("Offline by design"));
-        privacy.addView(bodyText("Maths Formula Memorizer works without internet. It has no ads, no login, no Firebase, no analytics, and no server."));
-        privacy.addView(smallText("The app does not send student name, class, progress, or mistakes anywhere."));
+        privacy.addView(sectionTitle(tr("Offline by design")));
+        privacy.addView(bodyText(tr("Maths Formula Memorizer works without internet. It has no ads, no login, no Firebase, no analytics, and no server.")));
+        privacy.addView(smallText(tr("The app does not send student name, class, progress, or mistakes anywhere.")));
         root.addView(privacy);
 
         LinearLayout storage = card();
-        storage.addView(sectionTitle("Saved only on this phone"));
-        storage.addView(bodyText("Student name, selected class, completed formulas, quiz accuracy, streak, and mistake review are saved inside this app on this device."));
-        storage.addView(smallText("Use reset buttons to clear progress from this phone."));
+        storage.addView(sectionTitle(tr("Saved only on this phone")));
+        storage.addView(bodyText(tr("Student name, selected class, completed formulas, quiz accuracy, streak, and mistake review are saved inside this app on this device.")));
+        storage.addView(smallText(tr("Use reset buttons to clear progress from this phone.")));
         root.addView(storage);
 
         LinearLayout learning = card();
-        learning.addView(sectionTitle("What the app does"));
-        learning.addView(bodyText("Students choose a class, learn formulas with visual memory diagrams, answer short quizzes, and review weak formulas until they improve."));
-        learning.addView(smallText("Class progress includes revision from earlier classes and one-class-ahead challenge formulas."));
+        learning.addView(sectionTitle(tr("What the app does")));
+        learning.addView(bodyText(tr("Students choose a class, learn formulas with visual memory diagrams, answer short quizzes, and review weak formulas until they improve.")));
+        learning.addView(smallText(tr("Class progress includes revision from earlier classes and one-class-ahead challenge formulas.")));
         root.addView(learning);
 
         LinearLayout contact = card();
-        contact.addView(sectionTitle("Contact"));
-        contact.addView(bodyText("For privacy questions, contact: adilhayat@yahoo.com"));
+        contact.addView(sectionTitle(tr("Contact")));
+        contact.addView(bodyText(tr("For privacy questions, contact: adilhayat@yahoo.com")));
         root.addView(contact);
 
-        Button back = primaryButton("Back to home");
+        Button back = primaryButton(tr("Back to home"));
         back.setOnClickListener(v -> showHome());
         root.addView(back);
     }
@@ -790,14 +865,21 @@ public class MainActivity extends Activity {
         currentScreen = SCREEN_RESET_ALL_CONFIRM;
         currentQuizSession = null;
         quizContinueAction = null;
-        LinearLayout root = baseScreen("Reset progress?", "This only clears progress on this phone.");
-        Button yes = primaryButton("Yes, reset progress");
+        LinearLayout root = baseScreen(tr("Reset progress?"), tr("This only clears progress on this phone."));
+        Button yes = primaryButton(tr("Yes, reset progress"));
         yes.setOnClickListener(v -> {
             String keepClass = selectedClass;
-            prefs.edit().clear().putString("selected_class", keepClass).apply();
+            String keepName = getStudentName();
+            String keepLanguage = appLanguage;
+            prefs.edit()
+                    .clear()
+                    .putString("selected_class", keepClass)
+                    .putString("student_name", keepName)
+                    .putString(PREF_LANGUAGE, keepLanguage)
+                    .apply();
             showHome();
         });
-        Button no = ghostButton("Cancel");
+        Button no = ghostButton(tr("Cancel"));
         no.setOnClickListener(v -> showProgress());
         root.addView(yes);
         root.addView(no);
@@ -807,14 +889,14 @@ public class MainActivity extends Activity {
         currentScreen = SCREEN_RESET_SCOPE_CONFIRM;
         currentQuizSession = null;
         quizContinueAction = null;
-        LinearLayout root = baseScreen(title, "This only changes progress saved on this phone.");
+        LinearLayout root = baseScreen(title, tr("This only changes progress saved on this phone."));
         LinearLayout c = cardTint(Color.rgb(255, 251, 235));
-        c.addView(sectionTitle("Reset progress"));
+        c.addView(sectionTitle(tr("Reset progress")));
         c.addView(bodyText(message));
-        c.addView(smallText("Student name and selected class will stay the same."));
+        c.addView(smallText(tr("Student name and selected class will stay the same.")));
         root.addView(c);
 
-        Button yes = primaryButton("Reset");
+        Button yes = primaryButton(tr("Reset"));
         yes.setTextColor(Color.WHITE);
         yes.setBackground(rounded(RED, 12));
         yes.setOnClickListener(v -> {
@@ -823,7 +905,7 @@ public class MainActivity extends Activity {
         });
         root.addView(yes);
 
-        Button no = ghostButton("Cancel");
+        Button no = ghostButton(tr("Cancel"));
         no.setOnClickListener(v -> showHome());
         root.addView(no);
     }
@@ -941,16 +1023,16 @@ public class MainActivity extends Activity {
         item.addView(smallText(formulaMeta(f)));
         item.addView(formulaText(f.formula));
         item.addView(smallText(f.explanation));
-        Button open = completed.contains(f.id) ? secondaryButton("Review again") : primaryButton("Start lesson");
+        Button open = completed.contains(f.id) ? secondaryButton(tr("Review again")) : primaryButton(tr("Start lesson"));
         open.setOnClickListener(v -> showLesson(f));
         item.addView(open);
         root.addView(item);
     }
 
     private String formulaMeta(Formula f) {
-        String meta = "Introduced Class " + f.introducedClass + " • " + f.topic;
-        String level = formulaLevel(f);
-        return level.isEmpty() ? meta : level + " • " + meta;
+        String meta = trf("Introduced Class %d", f.introducedClass) + " / " + f.topic;
+        String level = displayFormulaLevel(f);
+        return level.isEmpty() ? meta : level + " / " + meta;
     }
 
     private List<Formula> formulasWithLevel(List<Formula> list, String level) {
@@ -963,21 +1045,21 @@ public class MainActivity extends Activity {
 
     private String cumulativeProgressTitle(int done, int total) {
         int p = percent(done, total);
-        if (p == 0) return "Fresh start";
-        if (p < 35) return "Warm-up level";
-        if (p < 70) return "Steady practice";
-        if (p < 100) return "Almost mastered";
-        return "Mastered";
+        if (p == 0) return tr("Fresh start");
+        if (p < 35) return tr("Warm-up level");
+        if (p < 70) return tr("Steady practice");
+        if (p < 100) return tr("Almost mastered");
+        return tr("Mastered");
     }
 
     private String areaProgressMessage(List<Formula> topicFormulas, int done, int weakCount) {
-        if (weakCount > 0) return "Mistake review is waiting in this topic.";
+        if (weakCount > 0) return tr("Mistake review is waiting in this topic.");
         int p = percent(done, topicFormulas.size());
-        if (p == 0) return "Fresh topic. Open it when you are ready.";
-        if (p < 35) return "Warm-up level. Keep building memory.";
-        if (p < 70) return "Practice level. The pattern is starting to stick.";
-        if (p < 100) return "Confident level. A little review will finish it.";
-        return "Mastered level. Review anytime.";
+        if (p == 0) return tr("Fresh topic. Open it when you are ready.");
+        if (p < 35) return tr("Warm-up level. Keep building memory.");
+        if (p < 70) return tr("Practice level. The pattern is starting to stick.");
+        if (p < 100) return tr("Confident level. A little review will finish it.");
+        return tr("Mastered level. Review anytime.");
     }
 
     private String visualCaption(Formula f) {
@@ -1033,11 +1115,16 @@ public class MainActivity extends Activity {
         return "";
     }
 
+    private String displayFormulaLevel(Formula f) {
+        String level = formulaLevel(f);
+        return level.isEmpty() ? "" : tr(level);
+    }
+
     private String quizLevelLabel(Formula f) {
         String level = formulaLevel(f);
-        if (level.equals("Revision")) return "Quick revision";
-        if (level.equals("New for you")) return "New for this level";
-        if (level.equals("Challenge")) return "Challenge formula";
+        if (level.equals("Revision")) return tr("Quick revision");
+        if (level.equals("New for you")) return tr("New for this level");
+        if (level.equals("Challenge")) return tr("Challenge formula");
         return "";
     }
 
@@ -1095,9 +1182,11 @@ public class MainActivity extends Activity {
     private LinearLayout baseScreen(String title, String subtitle) {
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(BG);
+        applyDirection(scroll);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(18), dp(24), dp(18), dp(28));
+        applyDirection(root);
         scroll.addView(root);
 
         TextView titleView = new TextView(this);
@@ -1106,6 +1195,7 @@ public class MainActivity extends Activity {
         titleView.setTextSize(27);
         titleView.setTypeface(Typeface.DEFAULT_BOLD);
         titleView.setPadding(0, dp(8), 0, dp(4));
+        applyDirection(titleView);
         root.addView(titleView);
 
         if (subtitle != null && !subtitle.isEmpty()) {
@@ -1120,9 +1210,11 @@ public class MainActivity extends Activity {
     private LinearLayout blankScreen() {
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(BG);
+        applyDirection(scroll);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(18), dp(24), dp(18), dp(28));
+        applyDirection(root);
         scroll.addView(root);
         setContentView(scroll);
         return root;
@@ -1133,6 +1225,7 @@ public class MainActivity extends Activity {
         c.setOrientation(LinearLayout.VERTICAL);
         c.setPadding(dp(16), dp(14), dp(16), dp(14));
         c.setBackground(roundedStroke(CARD, Color.rgb(229, 231, 235), 14));
+        applyDirection(c);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, dp(8), 0, dp(10));
         c.setLayoutParams(lp);
@@ -1168,24 +1261,895 @@ public class MainActivity extends Activity {
         return clean;
     }
 
+    private String tr(String text) {
+        if (text == null) return "";
+        String translated = null;
+        if (LANG_ES.equals(appLanguage)) translated = trEs(text);
+        else if (LANG_HI.equals(appLanguage)) translated = trHi(text);
+        else if (LANG_UR.equals(appLanguage)) translated = trUr(text);
+        else if (LANG_AR.equals(appLanguage)) translated = trAr(text);
+        else if (LANG_FR.equals(appLanguage)) translated = trFr(text);
+        return translated == null ? text : translated;
+    }
+
+    private String trf(String text, Object... args) {
+        try {
+            return String.format(localeForLanguage(), tr(text), args);
+        } catch (Exception e) {
+            return String.format(Locale.US, text, args);
+        }
+    }
+
+    private Locale localeForLanguage() {
+        if (LANG_ES.equals(appLanguage)) return new Locale("es");
+        if (LANG_HI.equals(appLanguage)) return new Locale("hi");
+        if (LANG_UR.equals(appLanguage)) return new Locale("ur");
+        if (LANG_AR.equals(appLanguage)) return new Locale("ar");
+        if (LANG_FR.equals(appLanguage)) return Locale.FRENCH;
+        return Locale.US;
+    }
+
+    private String languageName(String code) {
+        if (LANG_ES.equals(code)) return "Español";
+        if (LANG_HI.equals(code)) return "हिन्दी";
+        if (LANG_UR.equals(code)) return "اردو";
+        if (LANG_AR.equals(code)) return "العربية";
+        if (LANG_FR.equals(code)) return "Français";
+        return "English";
+    }
+
+    private String displayClass(String className) {
+        if (className == null || className.equals("General Practice")) return tr("General Practice");
+        String number = className.replace("Class", "").trim();
+        if (number.isEmpty()) return className;
+        return trf("Class %s", number);
+    }
+
+    private boolean isRtlLanguage() {
+        return LANG_UR.equals(appLanguage) || LANG_AR.equals(appLanguage);
+    }
+
+    private void applyDirection(View view) {
+        int layoutDirection = isRtlLanguage() ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR;
+        int textDirection = isRtlLanguage() ? View.TEXT_DIRECTION_RTL : View.TEXT_DIRECTION_LTR;
+        view.setLayoutDirection(layoutDirection);
+        view.setTextDirection(textDirection);
+    }
+
+    private String trEs(String s) {
+        switch (s) {
+            case "Maths Formula Memorizer": return "Memorizador de fórmulas matemáticas";
+            case "Choose class": return "Elige la clase";
+            case "Tap a class to continue.": return "Toca una clase para continuar.";
+            case "Pick your school level": return "Elige tu nivel escolar";
+            case "Each class includes revision from earlier levels and a small next-level challenge.": return "Cada clase incluye repaso de niveles anteriores y un pequeño reto del siguiente nivel.";
+            case "You can edit this later from the home screen.": return "Puedes cambiarlo después desde la pantalla principal.";
+            case "What should I call you?": return "¿Cómo debo llamarte?";
+            case "Saved only on this phone. You can skip and start right away.": return "Guardado solo en este teléfono. Puedes omitirlo y empezar.";
+            case "Add a friendly name": return "Añade un nombre";
+            case "This helps the app make coaching messages feel personal.": return "Esto ayuda a que los mensajes sean más personales.";
+            case "Example: Ali": return "Ejemplo: Ali";
+            case "Student name": return "Nombre del estudiante";
+            case "Saved only on this phone. No login. No internet.": return "Guardado solo en este teléfono. Sin inicio de sesión. Sin internet.";
+            case "Save and start learning": return "Guardar y empezar";
+            case "Skip for now": return "Omitir por ahora";
+            case "Choose language": return "Elige idioma";
+            case "This changes app buttons and headings only. Maths content stays in English for accuracy.": return "Esto cambia solo botones y títulos. El contenido matemático queda en inglés por precisión.";
+            case "App language": return "Idioma de la app";
+            case "You can change this anytime from Home.": return "Puedes cambiarlo cuando quieras desde Inicio.";
+            case "Selected": return "Seleccionado";
+            case "Back to class": return "Volver a clase";
+            case "Back to home": return "Volver al inicio";
+            case "Language": return "Idioma";
+            case "Hi, %s": return "Hola, %s";
+            case "Edit": return "Editar";
+            case "Edit student name": return "Editar nombre del estudiante";
+            case "Change class": return "Cambiar clase";
+            case "Class %s": return "Clase %s";
+            case "%s cumulative progress": return "Progreso acumulado de %s";
+            case "Revision, new formulas, and one-step challenges move together here.": return "El repaso, las fórmulas nuevas y los retos avanzan juntos aquí.";
+            case "Start": return "Inicio";
+            case "Practice": return "Práctica";
+            case "Confident": return "Seguro";
+            case "Mastered": return "Dominado";
+            case "Reset %s progress": return "Reiniciar progreso de %s";
+            case "Reset %s progress?": return "¿Reiniciar progreso de %s?";
+            case "This clears completed lessons and mistake marks for formulas visible in %s.": return "Esto borra lecciones completadas y errores de las fórmulas visibles en %s.";
+            case "Mistake review (%d)": return "Repaso de errores (%d)";
+            case "Privacy & app info": return "Privacidad e información";
+            case "Choose a topic": return "Elige un tema";
+            case "Begin": return "Comenzar";
+            case "Learn": return "Aprender";
+            case "Strong": return "Fuerte";
+            case "Ready": return "Listo";
+            case "Reset topic": return "Reiniciar tema";
+            case "Reset progress for %s": return "Reiniciar progreso de %s";
+            case "Reset %s?": return "¿Reiniciar %s?";
+            case "This clears completed lessons and mistake marks for this topic only.": return "Esto borra lecciones completadas y errores solo de este tema.";
+            case "Review topic": return "Repasar tema";
+            case "Open topic": return "Abrir tema";
+            case "Review %s": return "Repasar %s";
+            case "Open %s": return "Abrir %s";
+            case "%s / 1-minute formula lessons": return "%s / lecciones de fórmula de 1 minuto";
+            case "%d / %d formulas completed": return "%d / %d fórmulas completadas";
+            case "No weak formulas in this topic yet.": return "Aún no hay fórmulas débiles en este tema.";
+            case "%d formula(s) need review in this topic.": return "%d fórmula(s) necesitan repaso en este tema.";
+            case "New for you": return "Nuevo para ti";
+            case "Revision": return "Repaso";
+            case "Challenge": return "Reto";
+            case "Back to topic": return "Volver al tema";
+            case "Home page": return "Inicio";
+            case "Visual memory": return "Memoria visual";
+            case "Meaning": return "Significado";
+            case "Example": return "Ejemplo";
+            case "Start quiz": return "Empezar quiz";
+            case "Quick quiz": return "Quiz rápido";
+            case "Question %d of %d": return "Pregunta %d de %d";
+            case "Score so far: %d correct": return "Puntuación: %d correctas";
+            case "Tap the best answer. You can use a hint or quit without saving progress.": return "Toca la mejor respuesta. Puedes usar pista o salir sin guardar.";
+            case "Show hint": return "Mostrar pista";
+            case "Quit quiz": return "Salir del quiz";
+            case "Correct": return "Correcto";
+            case "Focus - not correct": return "Concéntrate - no es correcto";
+            case "Your answer: %s": return "Tu respuesta: %s";
+            case "Why it is right": return "Por qué es correcto";
+            case "Correct answer": return "Respuesta correcta";
+            case "Read slowly, %s. You are not allowed to guess carelessly.": return "Lee despacio, %s. No adivines sin cuidado.";
+            case "Finish lesson": return "Terminar lección";
+            case "Next question": return "Siguiente pregunta";
+            case "Added to review": return "Añadido al repaso";
+            case "Score: %d / %d": return "Puntuación: %d / %d";
+            case "Excellent. This formula is marked as mastered.": return "Excelente. Esta fórmula quedó dominada.";
+            case "Good practice. This formula will appear in mistake review until it becomes easy.": return "Buen trabajo. Esta fórmula aparecerá en repaso de errores hasta que sea fácil.";
+            case "One formula at a time builds long-term memory.": return "Una fórmula a la vez crea memoria duradera.";
+            case "Next formula": return "Siguiente fórmula";
+            case "Review mistakes": return "Repasar errores";
+            case "Home": return "Inicio";
+            case "Mistake review": return "Repaso de errores";
+            case "Practice formulas you forgot before.": return "Practica fórmulas que olvidaste.";
+            case "No weak formulas yet": return "Aún no hay fórmulas débiles";
+            case "Mistakes will appear here automatically after quizzes.": return "Los errores aparecerán aquí automáticamente después de los quizzes.";
+            case "Keep practicing one formula per day.": return "Sigue practicando una fórmula al día.";
+            case "Review the hardest one first": return "Repasa primero la más difícil";
+            case "Weak formulas are sorted by number of mistakes.": return "Las fórmulas débiles se ordenan por número de errores.";
+            case "Start mistake review": return "Empezar repaso de errores";
+            case "Mistakes: %d": return "Errores: %d";
+            case "Practice again": return "Practicar otra vez";
+            case "Progress report": return "Informe de progreso";
+            case "Overall progress: %d%%": return "Progreso total: %d%%";
+            case "Lessons": return "Lecciones";
+            case "Accuracy": return "Precisión";
+            case "Streak": return "Racha";
+            case "Student name and progress are saved only on this phone. No account and no internet needed.": return "El nombre y progreso se guardan solo en este teléfono. Sin cuenta ni internet.";
+            case "Topic progress": return "Progreso por tema";
+            case "%d / %d completed": return "%d / %d completadas";
+            case "Review %d weak formula(s)": return "Repasar %d fórmula(s) débiles";
+            case "Change student name": return "Cambiar nombre";
+            case "Reset progress for this phone": return "Reiniciar progreso de este teléfono";
+            case "Clear facts for students and parents.": return "Información clara para estudiantes y padres.";
+            case "Offline by design": return "Diseñada sin conexión";
+            case "Maths Formula Memorizer works without internet. It has no ads, no login, no Firebase, no analytics, and no server.": return "Maths Formula Memorizer funciona sin internet. No tiene anuncios, inicio de sesión, Firebase, analíticas ni servidor.";
+            case "The app does not send student name, class, progress, or mistakes anywhere.": return "La app no envía nombre, clase, progreso ni errores a ningún lugar.";
+            case "Saved only on this phone": return "Guardado solo en este teléfono";
+            case "Student name, selected class, completed formulas, quiz accuracy, streak, and mistake review are saved inside this app on this device.": return "Nombre, clase, fórmulas completadas, precisión, racha y errores se guardan en esta app en este dispositivo.";
+            case "Use reset buttons to clear progress from this phone.": return "Usa los botones de reinicio para borrar el progreso.";
+            case "What the app does": return "Qué hace la app";
+            case "Students choose a class, learn formulas with visual memory diagrams, answer short quizzes, and review weak formulas until they improve.": return "Los estudiantes eligen una clase, aprenden con diagramas, responden quizzes cortos y repasan fórmulas débiles.";
+            case "Class progress includes revision from earlier classes and one-class-ahead challenge formulas.": return "El progreso incluye repaso de clases anteriores y retos de una clase superior.";
+            case "Contact": return "Contacto";
+            case "For privacy questions, contact: adilhayat@yahoo.com": return "Para preguntas de privacidad, contacta: adilhayat@yahoo.com";
+            case "Reset progress?": return "¿Reiniciar progreso?";
+            case "This only clears progress on this phone.": return "Esto solo borra el progreso de este teléfono.";
+            case "Yes, reset progress": return "Sí, reiniciar progreso";
+            case "Cancel": return "Cancelar";
+            case "This only changes progress saved on this phone.": return "Esto solo cambia el progreso guardado en este teléfono.";
+            case "Reset progress": return "Reiniciar progreso";
+            case "Student name and selected class will stay the same.": return "El nombre y la clase seleccionada no cambiarán.";
+            case "Reset": return "Reiniciar";
+            case "Hint": return "Pista";
+            case "Use this clue": return "Usa esta pista";
+            case "Hints help memory. Try answering without looking again.": return "Las pistas ayudan a recordar. Intenta responder sin mirar otra vez.";
+            case "Back to question": return "Volver a la pregunta";
+            case "Quit quiz?": return "¿Salir del quiz?";
+            case "Your current quiz answers will not be saved.": return "Tus respuestas actuales no se guardarán.";
+            case "Leave this quiz, %s?": return "¿Salir de este quiz, %s?";
+            case "The lesson will not be completed. You can restart it anytime from the same topic.": return "La lección no se completará. Puedes reiniciarla desde el mismo tema.";
+            case "Continue quiz": return "Continuar quiz";
+            case "Leave quiz and go back to topic": return "Salir y volver al tema";
+            case "Quick revision": return "Repaso rápido";
+            case "New for this level": return "Nuevo para este nivel";
+            case "Challenge formula": return "Fórmula de reto";
+            case "Fresh start": return "Comienzo nuevo";
+            case "Warm-up level": return "Nivel de calentamiento";
+            case "Steady practice": return "Práctica constante";
+            case "Almost mastered": return "Casi dominado";
+            case "Mistake review is waiting in this topic.": return "Hay repaso de errores en este tema.";
+            case "Fresh topic. Open it when you are ready.": return "Tema nuevo. Ábrelo cuando estés listo.";
+            case "Warm-up level. Keep building memory.": return "Nivel de calentamiento. Sigue construyendo memoria.";
+            case "Practice level. The pattern is starting to stick.": return "Nivel de práctica. El patrón empieza a fijarse.";
+            case "Confident level. A little review will finish it.": return "Nivel seguro. Un poco de repaso lo terminará.";
+            case "Mastered level. Review anytime.": return "Nivel dominado. Repasa cuando quieras.";
+            case "Introduced Class %d": return "Introducida en clase %d";
+            case "General Practice": return "Práctica general";
+            case "Start lesson": return "Empezar lección";
+            case "Review again": return "Repasar otra vez";
+            case "Excellent, %s!": return "¡Excelente, %s!";
+            case "Correct - sharp memory, %s!": return "¡Correcto, buena memoria, %s!";
+            case "Good work, %s. Keep going.": return "Buen trabajo, %s. Sigue así.";
+            case "Nice! That formula is sticking.": return "¡Bien! Esa fórmula se está quedando.";
+            case "Right answer. Fast and focused.": return "Respuesta correcta. Rápido y concentrado.";
+            case "Not good enough yet, %s - focus.": return "Aún no es suficiente, %s. Concéntrate.";
+            case "Careful, %s. Do not guess.": return "Cuidado, %s. No adivines.";
+            case "Slow down, %s. Read the formula again.": return "Más despacio, %s. Lee la fórmula otra vez.";
+            case "Wrong answer, but fix it now.": return "Respuesta incorrecta, pero corrígela ahora.";
+            case "Focus. You can do better than guessing.": return "Concéntrate. Puedes hacerlo mejor que adivinar.";
+            default: return null;
+        }
+    }
+
+    private String trHi(String s) {
+        switch (s) {
+            case "Maths Formula Memorizer": return "गणित सूत्र मेमोराइज़र";
+            case "Choose class": return "कक्षा चुनें";
+            case "Tap a class to continue.": return "आगे बढ़ने के लिए कक्षा चुनें।";
+            case "Pick your school level": return "अपना स्कूल स्तर चुनें";
+            case "Each class includes revision from earlier levels and a small next-level challenge.": return "हर कक्षा में पुराने स्तर का रिवीजन और अगले स्तर की छोटी चुनौती है।";
+            case "You can edit this later from the home screen.": return "आप इसे बाद में होम स्क्रीन से बदल सकते हैं।";
+            case "What should I call you?": return "मैं आपको क्या बुलाऊँ?";
+            case "Saved only on this phone. You can skip and start right away.": return "सिर्फ इस फोन पर सेव होगा। आप छोड़कर तुरंत शुरू कर सकते हैं।";
+            case "Add a friendly name": return "अपना नाम लिखें";
+            case "This helps the app make coaching messages feel personal.": return "इससे कोचिंग संदेश निजी लगते हैं।";
+            case "Example: Ali": return "उदाहरण: Ali";
+            case "Student name": return "विद्यार्थी का नाम";
+            case "Saved only on this phone. No login. No internet.": return "सिर्फ इस फोन पर सेव। लॉगिन नहीं। इंटरनेट नहीं।";
+            case "Save and start learning": return "सेव करें और सीखना शुरू करें";
+            case "Skip for now": return "अभी छोड़ें";
+            case "Choose language": return "भाषा चुनें";
+            case "This changes app buttons and headings only. Maths content stays in English for accuracy.": return "यह केवल ऐप के बटन और शीर्षक बदलता है। सही गणित के लिए सामग्री अंग्रेज़ी में रहेगी।";
+            case "App language": return "ऐप भाषा";
+            case "You can change this anytime from Home.": return "आप इसे होम से कभी भी बदल सकते हैं।";
+            case "Selected": return "चयनित";
+            case "Back to class": return "कक्षा पर वापस";
+            case "Back to home": return "होम पर वापस";
+            case "Language": return "भाषा";
+            case "Hi, %s": return "नमस्ते, %s";
+            case "Edit": return "बदलें";
+            case "Edit student name": return "विद्यार्थी का नाम बदलें";
+            case "Change class": return "कक्षा बदलें";
+            case "Class %s": return "कक्षा %s";
+            case "%s cumulative progress": return "%s कुल प्रगति";
+            case "Revision, new formulas, and one-step challenges move together here.": return "रिवीजन, नए सूत्र और छोटी चुनौतियाँ यहाँ साथ चलती हैं।";
+            case "Start": return "शुरू";
+            case "Practice": return "अभ्यास";
+            case "Confident": return "आत्मविश्वास";
+            case "Mastered": return "महारत";
+            case "Reset %s progress": return "%s प्रगति रीसेट करें";
+            case "Reset %s progress?": return "%s की प्रगति रीसेट करें?";
+            case "This clears completed lessons and mistake marks for formulas visible in %s.": return "यह %s में दिखने वाले सूत्रों की पूरी lessons और mistakes हटाएगा।";
+            case "Mistake review (%d)": return "गलती रिव्यू (%d)";
+            case "Privacy & app info": return "प्राइवेसी और ऐप जानकारी";
+            case "Choose a topic": return "विषय चुनें";
+            case "Begin": return "शुरुआत";
+            case "Learn": return "सीखें";
+            case "Strong": return "मजबूत";
+            case "Ready": return "तैयार";
+            case "Reset topic": return "विषय रीसेट";
+            case "Reset progress for %s": return "%s की प्रगति रीसेट करें";
+            case "Reset %s?": return "%s रीसेट करें?";
+            case "This clears completed lessons and mistake marks for this topic only.": return "यह केवल इस विषय की पूरी lessons और mistakes हटाएगा।";
+            case "Review topic": return "विषय दोहराएँ";
+            case "Open topic": return "विषय खोलें";
+            case "Review %s": return "%s दोहराएँ";
+            case "Open %s": return "%s खोलें";
+            case "%s / 1-minute formula lessons": return "%s / 1 मिनट के सूत्र पाठ";
+            case "%d / %d formulas completed": return "%d / %d सूत्र पूरे";
+            case "No weak formulas in this topic yet.": return "इस विषय में अभी कमजोर सूत्र नहीं हैं।";
+            case "%d formula(s) need review in this topic.": return "इस विषय में %d सूत्रों को रिव्यू चाहिए।";
+            case "New for you": return "आपके लिए नया";
+            case "Revision": return "रिवीजन";
+            case "Challenge": return "चुनौती";
+            case "Back to topic": return "विषय पर वापस";
+            case "Home page": return "होम";
+            case "Visual memory": return "दृश्य याददाश्त";
+            case "Meaning": return "अर्थ";
+            case "Example": return "उदाहरण";
+            case "Start quiz": return "क्विज शुरू करें";
+            case "Quick quiz": return "त्वरित क्विज";
+            case "Question %d of %d": return "प्रश्न %d / %d";
+            case "Score so far: %d correct": return "अब तक स्कोर: %d सही";
+            case "Tap the best answer. You can use a hint or quit without saving progress.": return "सबसे अच्छा उत्तर चुनें। आप संकेत ले सकते हैं या बिना सेव किए छोड़ सकते हैं।";
+            case "Show hint": return "संकेत दिखाएँ";
+            case "Quit quiz": return "क्विज छोड़ें";
+            case "Correct": return "सही";
+            case "Focus - not correct": return "ध्यान दें - सही नहीं";
+            case "Your answer: %s": return "आपका उत्तर: %s";
+            case "Why it is right": return "यह सही क्यों है";
+            case "Correct answer": return "सही उत्तर";
+            case "Read slowly, %s. You are not allowed to guess carelessly.": return "धीरे पढ़ें, %s। बिना सोचे अनुमान न लगाएँ।";
+            case "Finish lesson": return "पाठ समाप्त करें";
+            case "Next question": return "अगला प्रश्न";
+            case "Added to review": return "रिव्यू में जोड़ा गया";
+            case "Score: %d / %d": return "स्कोर: %d / %d";
+            case "Excellent. This formula is marked as mastered.": return "बहुत अच्छा। यह सूत्र mastered मार्क हो गया।";
+            case "Good practice. This formula will appear in mistake review until it becomes easy.": return "अच्छा अभ्यास। यह सूत्र आसान होने तक गलती रिव्यू में आएगा।";
+            case "One formula at a time builds long-term memory.": return "एक समय में एक सूत्र लंबे समय की याद बनाता है।";
+            case "Next formula": return "अगला सूत्र";
+            case "Review mistakes": return "गलतियाँ दोहराएँ";
+            case "Home": return "होम";
+            case "Mistake review": return "गलती रिव्यू";
+            case "Practice formulas you forgot before.": return "वे सूत्र अभ्यास करें जो पहले भूल गए थे।";
+            case "No weak formulas yet": return "अभी कोई कमजोर सूत्र नहीं";
+            case "Mistakes will appear here automatically after quizzes.": return "क्विज के बाद गलतियाँ यहाँ अपने आप आएँगी।";
+            case "Keep practicing one formula per day.": return "हर दिन एक सूत्र अभ्यास करें।";
+            case "Review the hardest one first": return "सबसे कठिन को पहले दोहराएँ";
+            case "Weak formulas are sorted by number of mistakes.": return "कमजोर सूत्र गलतियों की संख्या से क्रम में हैं।";
+            case "Start mistake review": return "गलती रिव्यू शुरू करें";
+            case "Mistakes: %d": return "गलतियाँ: %d";
+            case "Practice again": return "फिर अभ्यास करें";
+            case "Progress report": return "प्रगति रिपोर्ट";
+            case "Overall progress: %d%%": return "कुल प्रगति: %d%%";
+            case "Lessons": return "पाठ";
+            case "Accuracy": return "सटीकता";
+            case "Streak": return "स्ट्रीक";
+            case "Student name and progress are saved only on this phone. No account and no internet needed.": return "नाम और प्रगति सिर्फ इस फोन पर सेव हैं। अकाउंट और इंटरनेट की जरूरत नहीं।";
+            case "Topic progress": return "विषय प्रगति";
+            case "%d / %d completed": return "%d / %d पूरे";
+            case "Review %d weak formula(s)": return "%d कमजोर सूत्र दोहराएँ";
+            case "Change student name": return "विद्यार्थी का नाम बदलें";
+            case "Reset progress for this phone": return "इस फोन की प्रगति रीसेट करें";
+            case "Clear facts for students and parents.": return "विद्यार्थियों और माता-पिता के लिए साफ जानकारी।";
+            case "Offline by design": return "ऑफलाइन बनाया गया";
+            case "Maths Formula Memorizer works without internet. It has no ads, no login, no Firebase, no analytics, and no server.": return "Maths Formula Memorizer बिना इंटरनेट चलता है। इसमें विज्ञापन, लॉगिन, Firebase, analytics या server नहीं है।";
+            case "The app does not send student name, class, progress, or mistakes anywhere.": return "ऐप नाम, कक्षा, प्रगति या गलतियाँ कहीं नहीं भेजता।";
+            case "Saved only on this phone": return "सिर्फ इस फोन पर सेव";
+            case "Student name, selected class, completed formulas, quiz accuracy, streak, and mistake review are saved inside this app on this device.": return "नाम, कक्षा, पूरे सूत्र, accuracy, streak और mistake review इसी डिवाइस की ऐप में सेव हैं।";
+            case "Use reset buttons to clear progress from this phone.": return "प्रगति साफ करने के लिए reset बटन इस्तेमाल करें।";
+            case "What the app does": return "ऐप क्या करती है";
+            case "Students choose a class, learn formulas with visual memory diagrams, answer short quizzes, and review weak formulas until they improve.": return "विद्यार्थी कक्षा चुनते हैं, diagrams से सूत्र सीखते हैं, छोटे quizzes करते हैं और कमजोर सूत्र दोहराते हैं।";
+            case "Class progress includes revision from earlier classes and one-class-ahead challenge formulas.": return "कक्षा प्रगति में पिछली कक्षाओं का रिवीजन और एक कक्षा आगे की challenges शामिल हैं।";
+            case "Contact": return "संपर्क";
+            case "For privacy questions, contact: adilhayat@yahoo.com": return "प्राइवेसी सवालों के लिए संपर्क करें: adilhayat@yahoo.com";
+            case "Reset progress?": return "प्रगति रीसेट करें?";
+            case "This only clears progress on this phone.": return "यह सिर्फ इस फोन की प्रगति हटाता है।";
+            case "Yes, reset progress": return "हाँ, प्रगति रीसेट करें";
+            case "Cancel": return "रद्द करें";
+            case "This only changes progress saved on this phone.": return "यह सिर्फ इस फोन पर सेव प्रगति बदलता है।";
+            case "Reset progress": return "प्रगति रीसेट";
+            case "Student name and selected class will stay the same.": return "नाम और चुनी हुई कक्षा वही रहेगी।";
+            case "Reset": return "रीसेट";
+            case "Hint": return "संकेत";
+            case "Use this clue": return "यह संकेत इस्तेमाल करें";
+            case "Hints help memory. Try answering without looking again.": return "संकेत याद में मदद करते हैं। फिर बिना देखे उत्तर दें।";
+            case "Back to question": return "प्रश्न पर वापस";
+            case "Quit quiz?": return "क्विज छोड़ें?";
+            case "Your current quiz answers will not be saved.": return "आपके वर्तमान उत्तर सेव नहीं होंगे।";
+            case "Leave this quiz, %s?": return "%s, यह क्विज छोड़ें?";
+            case "The lesson will not be completed. You can restart it anytime from the same topic.": return "पाठ पूरा नहीं होगा। आप इसे उसी विषय से फिर शुरू कर सकते हैं।";
+            case "Continue quiz": return "क्विज जारी रखें";
+            case "Leave quiz and go back to topic": return "क्विज छोड़ें और विषय पर जाएँ";
+            case "Quick revision": return "त्वरित रिवीजन";
+            case "New for this level": return "इस स्तर के लिए नया";
+            case "Challenge formula": return "चुनौती सूत्र";
+            case "Fresh start": return "नई शुरुआत";
+            case "Warm-up level": return "वार्म-अप स्तर";
+            case "Steady practice": return "नियमित अभ्यास";
+            case "Almost mastered": return "लगभग महारत";
+            case "Mistake review is waiting in this topic.": return "इस विषय में गलती रिव्यू बाकी है।";
+            case "Fresh topic. Open it when you are ready.": return "नया विषय। तैयार हों तो खोलें।";
+            case "Warm-up level. Keep building memory.": return "वार्म-अप स्तर। याददाश्त बनाते रहें।";
+            case "Practice level. The pattern is starting to stick.": return "अभ्यास स्तर। पैटर्न याद होने लगा है।";
+            case "Confident level. A little review will finish it.": return "आत्मविश्वास स्तर। थोड़ा रिव्यू पूरा कर देगा।";
+            case "Mastered level. Review anytime.": return "महारत स्तर। कभी भी दोहराएँ।";
+            case "Introduced Class %d": return "कक्षा %d में शुरू";
+            case "General Practice": return "सामान्य अभ्यास";
+            case "Start lesson": return "पाठ शुरू करें";
+            case "Review again": return "फिर दोहराएँ";
+            default: return null;
+        }
+    }
+
+    private String trUr(String s) {
+        switch (s) {
+            case "Maths Formula Memorizer": return "ریاضی فارمولا میمورائزر";
+            case "Choose class": return "کلاس منتخب کریں";
+            case "Tap a class to continue.": return "جاری رکھنے کے لیے کلاس پر ٹیپ کریں۔";
+            case "Pick your school level": return "اپنا اسکول لیول منتخب کریں";
+            case "Each class includes revision from earlier levels and a small next-level challenge.": return "ہر کلاس میں پچھلے لیولز کی دہرائی اور اگلے لیول کا چھوٹا چیلنج شامل ہے۔";
+            case "You can edit this later from the home screen.": return "آپ اسے بعد میں ہوم اسکرین سے بدل سکتے ہیں۔";
+            case "What should I call you?": return "میں آپ کو کیا کہوں؟";
+            case "Saved only on this phone. You can skip and start right away.": return "صرف اس فون پر محفوظ ہوگا۔ آپ چھوڑ کر فوراً شروع کر سکتے ہیں۔";
+            case "Add a friendly name": return "اپنا نام لکھیں";
+            case "This helps the app make coaching messages feel personal.": return "اس سے کوچنگ پیغامات زیادہ ذاتی لگتے ہیں۔";
+            case "Example: Ali": return "مثال: Ali";
+            case "Student name": return "طالب علم کا نام";
+            case "Saved only on this phone. No login. No internet.": return "صرف اس فون پر محفوظ۔ لاگ اِن نہیں۔ انٹرنیٹ نہیں۔";
+            case "Save and start learning": return "محفوظ کریں اور سیکھنا شروع کریں";
+            case "Skip for now": return "ابھی چھوڑ دیں";
+            case "Choose language": return "زبان منتخب کریں";
+            case "This changes app buttons and headings only. Maths content stays in English for accuracy.": return "یہ صرف بٹن اور سرخیاں بدلتا ہے۔ درستگی کے لیے ریاضی کا مواد انگریزی میں رہے گا۔";
+            case "App language": return "ایپ کی زبان";
+            case "You can change this anytime from Home.": return "آپ اسے ہوم سے کبھی بھی بدل سکتے ہیں۔";
+            case "Selected": return "منتخب";
+            case "Back to class": return "کلاس پر واپس";
+            case "Back to home": return "ہوم پر واپس";
+            case "Language": return "زبان";
+            case "Hi, %s": return "سلام، %s";
+            case "Edit": return "تبدیل";
+            case "Edit student name": return "طالب علم کا نام تبدیل کریں";
+            case "Change class": return "کلاس تبدیل کریں";
+            case "Class %s": return "کلاس %s";
+            case "%s cumulative progress": return "%s مجموعی پیش رفت";
+            case "Revision, new formulas, and one-step challenges move together here.": return "دہرائی، نئے فارمولے اور چھوٹے چیلنج یہاں ساتھ چلتے ہیں۔";
+            case "Start": return "شروع";
+            case "Practice": return "مشق";
+            case "Confident": return "اعتماد";
+            case "Mastered": return "ماہر";
+            case "Reset %s progress": return "%s کی پیش رفت ری سیٹ";
+            case "Reset %s progress?": return "%s کی پیش رفت ری سیٹ کریں؟";
+            case "This clears completed lessons and mistake marks for formulas visible in %s.": return "یہ %s میں نظر آنے والے فارمولوں کی مکمل lessons اور غلطیاں صاف کرے گا۔";
+            case "Mistake review (%d)": return "غلطی ریویو (%d)";
+            case "Privacy & app info": return "پرائیویسی اور ایپ معلومات";
+            case "Choose a topic": return "موضوع منتخب کریں";
+            case "Begin": return "آغاز";
+            case "Learn": return "سیکھیں";
+            case "Strong": return "مضبوط";
+            case "Ready": return "تیار";
+            case "Reset topic": return "موضوع ری سیٹ";
+            case "Reset progress for %s": return "%s کی پیش رفت ری سیٹ کریں";
+            case "Reset %s?": return "%s ری سیٹ کریں؟";
+            case "This clears completed lessons and mistake marks for this topic only.": return "یہ صرف اس موضوع کی مکمل lessons اور غلطیاں صاف کرے گا۔";
+            case "Review topic": return "موضوع دہرائیں";
+            case "Open topic": return "موضوع کھولیں";
+            case "Review %s": return "%s دہرائیں";
+            case "Open %s": return "%s کھولیں";
+            case "%s / 1-minute formula lessons": return "%s / ایک منٹ کے فارمولا اسباق";
+            case "%d / %d formulas completed": return "%d / %d فارمولے مکمل";
+            case "No weak formulas in this topic yet.": return "اس موضوع میں ابھی کمزور فارمولے نہیں ہیں۔";
+            case "%d formula(s) need review in this topic.": return "اس موضوع میں %d فارمولوں کو ریویو چاہیے۔";
+            case "New for you": return "آپ کے لیے نیا";
+            case "Revision": return "دہرائی";
+            case "Challenge": return "چیلنج";
+            case "Back to topic": return "موضوع پر واپس";
+            case "Home page": return "ہوم";
+            case "Visual memory": return "بصری یادداشت";
+            case "Meaning": return "مطلب";
+            case "Example": return "مثال";
+            case "Start quiz": return "کوئز شروع کریں";
+            case "Quick quiz": return "فوری کوئز";
+            case "Question %d of %d": return "سوال %d از %d";
+            case "Score so far: %d correct": return "اب تک اسکور: %d درست";
+            case "Tap the best answer. You can use a hint or quit without saving progress.": return "بہترین جواب منتخب کریں۔ آپ اشارہ لے سکتے ہیں یا محفوظ کیے بغیر نکل سکتے ہیں۔";
+            case "Show hint": return "اشارہ دکھائیں";
+            case "Quit quiz": return "کوئز چھوڑیں";
+            case "Correct": return "درست";
+            case "Focus - not correct": return "توجہ دیں - درست نہیں";
+            case "Your answer: %s": return "آپ کا جواب: %s";
+            case "Why it is right": return "یہ درست کیوں ہے";
+            case "Correct answer": return "درست جواب";
+            case "Read slowly, %s. You are not allowed to guess carelessly.": return "آہستہ پڑھیں، %s۔ بے دھیانی سے اندازہ نہ لگائیں۔";
+            case "Finish lesson": return "سبق ختم کریں";
+            case "Next question": return "اگلا سوال";
+            case "Added to review": return "ریویو میں شامل";
+            case "Score: %d / %d": return "اسکور: %d / %d";
+            case "Excellent. This formula is marked as mastered.": return "بہت خوب۔ یہ فارمولا mastered نشان زد ہو گیا۔";
+            case "Good practice. This formula will appear in mistake review until it becomes easy.": return "اچھی مشق۔ یہ فارمولا آسان ہونے تک غلطی ریویو میں آئے گا۔";
+            case "One formula at a time builds long-term memory.": return "ایک وقت میں ایک فارمولا لمبی یادداشت بناتا ہے۔";
+            case "Next formula": return "اگلا فارمولا";
+            case "Review mistakes": return "غلطیاں دہرائیں";
+            case "Home": return "ہوم";
+            case "Mistake review": return "غلطی ریویو";
+            case "Practice formulas you forgot before.": return "وہ فارمولے مشق کریں جو پہلے بھول گئے تھے۔";
+            case "No weak formulas yet": return "ابھی کمزور فارمولے نہیں";
+            case "Mistakes will appear here automatically after quizzes.": return "کوئز کے بعد غلطیاں یہاں خود آ جائیں گی۔";
+            case "Keep practicing one formula per day.": return "ہر دن ایک فارمولا مشق کریں۔";
+            case "Review the hardest one first": return "سب سے مشکل پہلے دہرائیں";
+            case "Weak formulas are sorted by number of mistakes.": return "کمزور فارمولے غلطیوں کی تعداد سے ترتیب دیے گئے ہیں۔";
+            case "Start mistake review": return "غلطی ریویو شروع کریں";
+            case "Mistakes: %d": return "غلطیاں: %d";
+            case "Practice again": return "دوبارہ مشق";
+            case "Progress report": return "پیش رفت رپورٹ";
+            case "Overall progress: %d%%": return "کل پیش رفت: %d%%";
+            case "Lessons": return "اسباق";
+            case "Accuracy": return "درستگی";
+            case "Streak": return "سلسلہ";
+            case "Student name and progress are saved only on this phone. No account and no internet needed.": return "نام اور پیش رفت صرف اس فون پر محفوظ ہیں۔ اکاؤنٹ اور انٹرنیٹ کی ضرورت نہیں۔";
+            case "Topic progress": return "موضوع کی پیش رفت";
+            case "%d / %d completed": return "%d / %d مکمل";
+            case "Review %d weak formula(s)": return "%d کمزور فارمولے دہرائیں";
+            case "Change student name": return "طالب علم کا نام تبدیل کریں";
+            case "Reset progress for this phone": return "اس فون کی پیش رفت ری سیٹ کریں";
+            case "Clear facts for students and parents.": return "طلبہ اور والدین کے لیے صاف معلومات۔";
+            case "Offline by design": return "آف لائن ڈیزائن";
+            case "Maths Formula Memorizer works without internet. It has no ads, no login, no Firebase, no analytics, and no server.": return "Maths Formula Memorizer انٹرنیٹ کے بغیر چلتا ہے۔ اس میں ads، login، Firebase، analytics یا server نہیں۔";
+            case "The app does not send student name, class, progress, or mistakes anywhere.": return "ایپ نام، کلاس، پیش رفت یا غلطیاں کہیں نہیں بھیجتی۔";
+            case "Saved only on this phone": return "صرف اس فون پر محفوظ";
+            case "Student name, selected class, completed formulas, quiz accuracy, streak, and mistake review are saved inside this app on this device.": return "نام، منتخب کلاس، مکمل فارمولے، quiz accuracy، streak اور mistake review اسی ڈیوائس میں محفوظ ہیں۔";
+            case "Use reset buttons to clear progress from this phone.": return "پیش رفت صاف کرنے کے لیے reset بٹن استعمال کریں۔";
+            case "What the app does": return "ایپ کیا کرتی ہے";
+            case "Students choose a class, learn formulas with visual memory diagrams, answer short quizzes, and review weak formulas until they improve.": return "طلبہ کلاس منتخب کرتے ہیں، diagrams کے ساتھ فارمولے سیکھتے ہیں، مختصر quizzes دیتے ہیں اور کمزور فارمولے دہراتے ہیں۔";
+            case "Class progress includes revision from earlier classes and one-class-ahead challenge formulas.": return "کلاس پیش رفت میں پچھلی کلاسوں کی دہرائی اور ایک کلاس آگے کے چیلنج فارمولے شامل ہیں۔";
+            case "Contact": return "رابطہ";
+            case "For privacy questions, contact: adilhayat@yahoo.com": return "پرائیویسی سوالات کے لیے رابطہ: adilhayat@yahoo.com";
+            case "Reset progress?": return "پیش رفت ری سیٹ کریں؟";
+            case "This only clears progress on this phone.": return "یہ صرف اس فون کی پیش رفت صاف کرتا ہے۔";
+            case "Yes, reset progress": return "ہاں، پیش رفت ری سیٹ کریں";
+            case "Cancel": return "منسوخ";
+            case "This only changes progress saved on this phone.": return "یہ صرف اس فون پر محفوظ پیش رفت بدلتا ہے۔";
+            case "Reset progress": return "پیش رفت ری سیٹ";
+            case "Student name and selected class will stay the same.": return "نام اور منتخب کلاس وہی رہیں گے۔";
+            case "Reset": return "ری سیٹ";
+            case "Hint": return "اشارہ";
+            case "Use this clue": return "یہ اشارہ استعمال کریں";
+            case "Hints help memory. Try answering without looking again.": return "اشارے یادداشت میں مدد کرتے ہیں۔ دوبارہ دیکھے بغیر جواب دیں۔";
+            case "Back to question": return "سوال پر واپس";
+            case "Quit quiz?": return "کوئز چھوڑیں؟";
+            case "Your current quiz answers will not be saved.": return "آپ کے موجودہ جوابات محفوظ نہیں ہوں گے۔";
+            case "Leave this quiz, %s?": return "%s، یہ کوئز چھوڑیں؟";
+            case "The lesson will not be completed. You can restart it anytime from the same topic.": return "سبق مکمل نہیں ہوگا۔ آپ اسے اسی موضوع سے دوبارہ شروع کر سکتے ہیں۔";
+            case "Continue quiz": return "کوئز جاری رکھیں";
+            case "Leave quiz and go back to topic": return "کوئز چھوڑ کر موضوع پر واپس جائیں";
+            case "Quick revision": return "فوری دہرائی";
+            case "New for this level": return "اس لیول کے لیے نیا";
+            case "Challenge formula": return "چیلنج فارمولا";
+            case "Fresh start": return "نئی شروعات";
+            case "Warm-up level": return "وارم اَپ لیول";
+            case "Steady practice": return "مسلسل مشق";
+            case "Almost mastered": return "تقریباً ماہر";
+            case "Mistake review is waiting in this topic.": return "اس موضوع میں غلطی ریویو موجود ہے۔";
+            case "Fresh topic. Open it when you are ready.": return "نیا موضوع۔ تیار ہوں تو کھولیں۔";
+            case "Warm-up level. Keep building memory.": return "وارم اَپ لیول۔ یادداشت بناتے رہیں۔";
+            case "Practice level. The pattern is starting to stick.": return "مشق لیول۔ pattern یاد ہونے لگا ہے۔";
+            case "Confident level. A little review will finish it.": return "اعتماد لیول۔ تھوڑی دہرائی اسے مکمل کر دے گی۔";
+            case "Mastered level. Review anytime.": return "ماہر لیول۔ کبھی بھی دہرائیں۔";
+            case "Introduced Class %d": return "کلاس %d میں شروع";
+            case "General Practice": return "عام مشق";
+            case "Start lesson": return "سبق شروع کریں";
+            case "Review again": return "دوبارہ دہرائیں";
+            default: return null;
+        }
+    }
+
+
+    private String trAr(String s) {
+        switch (s) {
+            case "Maths Formula Memorizer": return "حافظ صيغ الرياضيات";
+            case "Choose class": return "اختر الصف";
+            case "Tap a class to continue.": return "اضغط على الصف للمتابعة.";
+            case "Pick your school level": return "اختر مستواك الدراسي";
+            case "Each class includes revision from earlier levels and a small next-level challenge.": return "كل صف يتضمن مراجعة للمستويات السابقة وتحديا صغيرا للمستوى التالي.";
+            case "You can edit this later from the home screen.": return "يمكنك تعديل ذلك لاحقا من الشاشة الرئيسية.";
+            case "What should I call you?": return "بماذا أناديك؟";
+            case "Saved only on this phone. You can skip and start right away.": return "يحفظ فقط على هذا الهاتف. يمكنك التخطي والبدء الآن.";
+            case "Add a friendly name": return "أضف اسما ودودا";
+            case "This helps the app make coaching messages feel personal.": return "يساعد هذا في جعل رسائل التدريب شخصية أكثر.";
+            case "Example: Ali": return "مثال: Ali";
+            case "Student name": return "اسم الطالب";
+            case "Saved only on this phone. No login. No internet.": return "محفوظ فقط على هذا الهاتف. لا تسجيل دخول. لا إنترنت.";
+            case "Save and start learning": return "احفظ وابدأ التعلم";
+            case "Skip for now": return "تخطي الآن";
+            case "Choose language": return "اختر اللغة";
+            case "This changes app buttons and headings only. Maths content stays in English for accuracy.": return "هذا يغير أزرار التطبيق والعناوين فقط. يبقى محتوى الرياضيات بالإنجليزية للدقة.";
+            case "App language": return "لغة التطبيق";
+            case "You can change this anytime from Home.": return "يمكنك تغيير ذلك في أي وقت من الرئيسية.";
+            case "Selected": return "محدد";
+            case "Back to class": return "العودة إلى الصف";
+            case "Back to home": return "العودة للرئيسية";
+            case "Language": return "اللغة";
+            case "Hi, %s": return "مرحبا، %s";
+            case "Edit": return "تعديل";
+            case "Edit student name": return "تعديل اسم الطالب";
+            case "Change class": return "تغيير الصف";
+            case "Class %s": return "الصف %s";
+            case "%s cumulative progress": return "التقدم التراكمي: %s";
+            case "Revision, new formulas, and one-step challenges move together here.": return "المراجعة والصيغ الجديدة والتحديات القصيرة تتحرك معا هنا.";
+            case "Start": return "البداية";
+            case "Practice": return "تدريب";
+            case "Confident": return "واثق";
+            case "Mastered": return "متقن";
+            case "Reset %s progress": return "إعادة ضبط تقدم %s";
+            case "Reset %s progress?": return "إعادة ضبط تقدم %s؟";
+            case "This clears completed lessons and mistake marks for formulas visible in %s.": return "سيحذف هذا الدروس المكتملة وعلامات الأخطاء للصيغ الظاهرة في %s.";
+            case "Mistake review (%d)": return "مراجعة الأخطاء (%d)";
+            case "Privacy & app info": return "الخصوصية ومعلومات التطبيق";
+            case "Choose a topic": return "اختر موضوعا";
+            case "Begin": return "ابدأ";
+            case "Learn": return "تعلم";
+            case "Strong": return "قوي";
+            case "Ready": return "جاهز";
+            case "Reset topic": return "إعادة ضبط الموضوع";
+            case "Reset progress for %s": return "إعادة ضبط تقدم %s";
+            case "Reset %s?": return "إعادة ضبط %s؟";
+            case "This clears completed lessons and mistake marks for this topic only.": return "يحذف هذا الدروس المكتملة والأخطاء لهذا الموضوع فقط.";
+            case "Review topic": return "مراجعة الموضوع";
+            case "Open topic": return "فتح الموضوع";
+            case "Review %s": return "مراجعة %s";
+            case "Open %s": return "فتح %s";
+            case "%s / 1-minute formula lessons": return "%s / دروس صيغ لمدة دقيقة";
+            case "%d / %d formulas completed": return "اكتمل %d / %d من الصيغ";
+            case "No weak formulas in this topic yet.": return "لا توجد صيغ ضعيفة في هذا الموضوع بعد.";
+            case "%d formula(s) need review in this topic.": return "%d صيغة تحتاج إلى مراجعة في هذا الموضوع.";
+            case "New for you": return "جديد لك";
+            case "Revision": return "مراجعة";
+            case "Challenge": return "تحد";
+            case "Back to topic": return "العودة للموضوع";
+            case "Home page": return "الرئيسية";
+            case "Visual memory": return "ذاكرة بصرية";
+            case "Meaning": return "المعنى";
+            case "Example": return "مثال";
+            case "Start quiz": return "ابدأ الاختبار";
+            case "Quick quiz": return "اختبار سريع";
+            case "Question %d of %d": return "السؤال %d من %d";
+            case "Score so far: %d correct": return "النتيجة حتى الآن: %d صحيح";
+            case "Tap the best answer. You can use a hint or quit without saving progress.": return "اضغط أفضل إجابة. يمكنك استخدام تلميح أو الخروج دون حفظ التقدم.";
+            case "Show hint": return "إظهار تلميح";
+            case "Quit quiz": return "إنهاء الاختبار";
+            case "Correct": return "صحيح";
+            case "Focus - not correct": return "ركز - غير صحيح";
+            case "Your answer: %s": return "إجابتك: %s";
+            case "Why it is right": return "لماذا هذا صحيح";
+            case "Correct answer": return "الإجابة الصحيحة";
+            case "Read slowly, %s. You are not allowed to guess carelessly.": return "اقرأ ببطء يا %s. لا تخمن بلا تركيز.";
+            case "Finish lesson": return "إنهاء الدرس";
+            case "Next question": return "السؤال التالي";
+            case "Added to review": return "أضيف إلى المراجعة";
+            case "Score: %d / %d": return "النتيجة: %d / %d";
+            case "Excellent. This formula is marked as mastered.": return "ممتاز. تم وضع هذه الصيغة كمتقنة.";
+            case "Good practice. This formula will appear in mistake review until it becomes easy.": return "تدريب جيد. ستظهر هذه الصيغة في مراجعة الأخطاء حتى تصبح سهلة.";
+            case "One formula at a time builds long-term memory.": return "صيغة واحدة في كل مرة تبني ذاكرة طويلة.";
+            case "Next formula": return "الصيغة التالية";
+            case "Review mistakes": return "مراجعة الأخطاء";
+            case "Home": return "الرئيسية";
+            case "Mistake review": return "مراجعة الأخطاء";
+            case "Practice formulas you forgot before.": return "تدرب على الصيغ التي نسيتها من قبل.";
+            case "No weak formulas yet": return "لا توجد صيغ ضعيفة بعد";
+            case "Mistakes will appear here automatically after quizzes.": return "ستظهر الأخطاء هنا تلقائيا بعد الاختبارات.";
+            case "Keep practicing one formula per day.": return "استمر في تدريب صيغة واحدة يوميا.";
+            case "Review the hardest one first": return "راجع الأصعب أولا";
+            case "Weak formulas are sorted by number of mistakes.": return "ترتب الصيغ الضعيفة حسب عدد الأخطاء.";
+            case "Start mistake review": return "بدء مراجعة الأخطاء";
+            case "Mistakes: %d": return "الأخطاء: %d";
+            case "Practice again": return "تدرب مرة أخرى";
+            case "Progress report": return "تقرير التقدم";
+            case "Overall progress: %d%%": return "التقدم الكلي: %d%%";
+            case "Lessons": return "الدروس";
+            case "Accuracy": return "الدقة";
+            case "Streak": return "السلسلة";
+            case "Student name and progress are saved only on this phone. No account and no internet needed.": return "اسم الطالب والتقدم محفوظان فقط على هذا الهاتف. لا حساب ولا إنترنت.";
+            case "Topic progress": return "تقدم الموضوع";
+            case "%d / %d completed": return "اكتمل %d / %d";
+            case "Review %d weak formula(s)": return "مراجعة %d صيغة ضعيفة";
+            case "Change student name": return "تغيير اسم الطالب";
+            case "Reset progress for this phone": return "إعادة ضبط تقدم هذا الهاتف";
+            case "Clear facts for students and parents.": return "حقائق واضحة للطلاب والآباء.";
+            case "Offline by design": return "مصمم للعمل دون إنترنت";
+            case "Maths Formula Memorizer works without internet. It has no ads, no login, no Firebase, no analytics, and no server.": return "يعمل Maths Formula Memorizer دون إنترنت. لا يحتوي على إعلانات أو تسجيل دخول أو Firebase أو تحليلات أو خادم.";
+            case "The app does not send student name, class, progress, or mistakes anywhere.": return "لا يرسل التطبيق اسم الطالب أو الصف أو التقدم أو الأخطاء إلى أي مكان.";
+            case "Saved only on this phone": return "محفوظ فقط على هذا الهاتف";
+            case "Student name, selected class, completed formulas, quiz accuracy, streak, and mistake review are saved inside this app on this device.": return "اسم الطالب والصف والصيغ المكتملة ودقة الاختبار والسلسلة ومراجعة الأخطاء تحفظ داخل التطبيق على هذا الجهاز.";
+            case "Use reset buttons to clear progress from this phone.": return "استخدم أزرار الإعادة لمسح التقدم من هذا الهاتف.";
+            case "What the app does": return "ماذا يفعل التطبيق";
+            case "Students choose a class, learn formulas with visual memory diagrams, answer short quizzes, and review weak formulas until they improve.": return "يختار الطلاب الصف، ويتعلمون الصيغ برسومات بصرية، ويجيبون على اختبارات قصيرة، ويراجعون الصيغ الضعيفة.";
+            case "Class progress includes revision from earlier classes and one-class-ahead challenge formulas.": return "يتضمن تقدم الصف مراجعة للصفوف السابقة وتحديات من صف واحد أعلى.";
+            case "Contact": return "التواصل";
+            case "For privacy questions, contact: adilhayat@yahoo.com": return "لأسئلة الخصوصية تواصل عبر: adilhayat@yahoo.com";
+            case "Reset progress?": return "إعادة ضبط التقدم؟";
+            case "This only clears progress on this phone.": return "هذا يمسح التقدم على هذا الهاتف فقط.";
+            case "Yes, reset progress": return "نعم، أعد ضبط التقدم";
+            case "Cancel": return "إلغاء";
+            case "This only changes progress saved on this phone.": return "هذا يغير فقط التقدم المحفوظ على هذا الهاتف.";
+            case "Reset progress": return "إعادة ضبط التقدم";
+            case "Student name and selected class will stay the same.": return "سيبقى اسم الطالب والصف كما هما.";
+            case "Reset": return "إعادة ضبط";
+            case "Hint": return "تلميح";
+            case "Use this clue": return "استخدم هذا التلميح";
+            case "Hints help memory. Try answering without looking again.": return "التلميحات تساعد الذاكرة. حاول الإجابة دون النظر مرة أخرى.";
+            case "Back to question": return "العودة للسؤال";
+            case "Quit quiz?": return "إنهاء الاختبار؟";
+            case "Your current quiz answers will not be saved.": return "لن تحفظ إجابات الاختبار الحالية.";
+            case "Leave this quiz, %s?": return "هل تريد مغادرة الاختبار يا %s؟";
+            case "The lesson will not be completed. You can restart it anytime from the same topic.": return "لن يكتمل الدرس. يمكنك بدءه مرة أخرى من نفس الموضوع.";
+            case "Continue quiz": return "متابعة الاختبار";
+            case "Leave quiz and go back to topic": return "مغادرة الاختبار والعودة للموضوع";
+            case "Quick revision": return "مراجعة سريعة";
+            case "New for this level": return "جديد لهذا المستوى";
+            case "Challenge formula": return "صيغة تحد";
+            case "Fresh start": return "بداية جديدة";
+            case "Warm-up level": return "مستوى الإحماء";
+            case "Steady practice": return "تدريب ثابت";
+            case "Almost mastered": return "قريب من الإتقان";
+            case "Mistake review is waiting in this topic.": return "مراجعة الأخطاء تنتظر في هذا الموضوع.";
+            case "Fresh topic. Open it when you are ready.": return "موضوع جديد. افتحه عندما تكون جاهزا.";
+            case "Warm-up level. Keep building memory.": return "مستوى الإحماء. واصل بناء الذاكرة.";
+            case "Practice level. The pattern is starting to stick.": return "مستوى التدريب. بدأ النمط يثبت.";
+            case "Confident level. A little review will finish it.": return "مستوى الثقة. مراجعة قصيرة تنهيه.";
+            case "Mastered level. Review anytime.": return "مستوى متقن. راجع في أي وقت.";
+            case "Introduced Class %d": return "تم تقديمه في الصف %d";
+            case "General Practice": return "تدريب عام";
+            case "Start lesson": return "ابدأ الدرس";
+            case "Review again": return "راجع مرة أخرى";
+            default: return null;
+        }
+    }
+
+    private String trFr(String s) {
+        switch (s) {
+            case "Maths Formula Memorizer": return "Mémo des formules de maths";
+            case "Choose class": return "Choisis la classe";
+            case "Tap a class to continue.": return "Touche une classe pour continuer.";
+            case "Pick your school level": return "Choisis ton niveau scolaire";
+            case "Each class includes revision from earlier levels and a small next-level challenge.": return "Chaque classe inclut une révision des niveaux précédents et un petit défi du niveau suivant.";
+            case "You can edit this later from the home screen.": return "Tu peux modifier cela plus tard depuis l'accueil.";
+            case "What should I call you?": return "Comment dois-je t'appeler ?";
+            case "Saved only on this phone. You can skip and start right away.": return "Enregistré seulement sur ce téléphone. Tu peux passer et commencer.";
+            case "Add a friendly name": return "Ajoute un prénom";
+            case "This helps the app make coaching messages feel personal.": return "Cela rend les messages d'encouragement plus personnels.";
+            case "Example: Ali": return "Exemple : Ali";
+            case "Student name": return "Nom de l'élève";
+            case "Saved only on this phone. No login. No internet.": return "Enregistré seulement sur ce téléphone. Pas de connexion. Pas d'internet.";
+            case "Save and start learning": return "Enregistrer et commencer";
+            case "Skip for now": return "Passer pour l'instant";
+            case "Choose language": return "Choisir la langue";
+            case "This changes app buttons and headings only. Maths content stays in English for accuracy.": return "Cela change seulement les boutons et titres. Le contenu de maths reste en anglais pour la précision.";
+            case "App language": return "Langue de l'app";
+            case "You can change this anytime from Home.": return "Tu peux changer cela à tout moment depuis l'accueil.";
+            case "Selected": return "Sélectionné";
+            case "Back to class": return "Retour à la classe";
+            case "Back to home": return "Retour à l'accueil";
+            case "Language": return "Langue";
+            case "Hi, %s": return "Salut, %s";
+            case "Edit": return "Modifier";
+            case "Edit student name": return "Modifier le nom de l'élève";
+            case "Change class": return "Changer la classe";
+            case "Class %s": return "Classe %s";
+            case "%s cumulative progress": return "Progression cumulative de %s";
+            case "Revision, new formulas, and one-step challenges move together here.": return "Révisions, nouvelles formules et petits défis avancent ensemble ici.";
+            case "Start": return "Début";
+            case "Practice": return "Pratique";
+            case "Confident": return "Confiant";
+            case "Mastered": return "Maîtrisé";
+            case "Reset %s progress": return "Réinitialiser la progression de %s";
+            case "Reset %s progress?": return "Réinitialiser la progression de %s ?";
+            case "This clears completed lessons and mistake marks for formulas visible in %s.": return "Cela efface les leçons terminées et les erreurs des formules visibles en %s.";
+            case "Mistake review (%d)": return "Révision des erreurs (%d)";
+            case "Privacy & app info": return "Confidentialité et infos";
+            case "Choose a topic": return "Choisis un sujet";
+            case "Begin": return "Début";
+            case "Learn": return "Apprendre";
+            case "Strong": return "Solide";
+            case "Ready": return "Prêt";
+            case "Reset topic": return "Réinitialiser le sujet";
+            case "Reset progress for %s": return "Réinitialiser la progression de %s";
+            case "Reset %s?": return "Réinitialiser %s ?";
+            case "This clears completed lessons and mistake marks for this topic only.": return "Cela efface les leçons terminées et les erreurs de ce sujet seulement.";
+            case "Review topic": return "Réviser le sujet";
+            case "Open topic": return "Ouvrir le sujet";
+            case "Review %s": return "Réviser %s";
+            case "Open %s": return "Ouvrir %s";
+            case "%s / 1-minute formula lessons": return "%s / leçons de formules d'une minute";
+            case "%d / %d formulas completed": return "%d / %d formules terminées";
+            case "No weak formulas in this topic yet.": return "Aucune formule faible dans ce sujet pour l'instant.";
+            case "%d formula(s) need review in this topic.": return "%d formule(s) à revoir dans ce sujet.";
+            case "New for you": return "Nouveau pour toi";
+            case "Revision": return "Révision";
+            case "Challenge": return "Défi";
+            case "Back to topic": return "Retour au sujet";
+            case "Home page": return "Accueil";
+            case "Visual memory": return "Mémoire visuelle";
+            case "Meaning": return "Sens";
+            case "Example": return "Exemple";
+            case "Start quiz": return "Commencer le quiz";
+            case "Quick quiz": return "Quiz rapide";
+            case "Question %d of %d": return "Question %d sur %d";
+            case "Score so far: %d correct": return "Score actuel : %d correctes";
+            case "Tap the best answer. You can use a hint or quit without saving progress.": return "Touche la meilleure réponse. Tu peux utiliser un indice ou quitter sans enregistrer.";
+            case "Show hint": return "Afficher l'indice";
+            case "Quit quiz": return "Quitter le quiz";
+            case "Correct": return "Correct";
+            case "Focus - not correct": return "Concentre-toi - incorrect";
+            case "Your answer: %s": return "Ta réponse : %s";
+            case "Why it is right": return "Pourquoi c'est correct";
+            case "Correct answer": return "Bonne réponse";
+            case "Read slowly, %s. You are not allowed to guess carelessly.": return "Lis lentement, %s. Ne devine pas au hasard.";
+            case "Finish lesson": return "Terminer la leçon";
+            case "Next question": return "Question suivante";
+            case "Added to review": return "Ajouté à la révision";
+            case "Score: %d / %d": return "Score : %d / %d";
+            case "Excellent. This formula is marked as mastered.": return "Excellent. Cette formule est marquée comme maîtrisée.";
+            case "Good practice. This formula will appear in mistake review until it becomes easy.": return "Bonne pratique. Cette formule restera dans la révision des erreurs jusqu'à devenir facile.";
+            case "One formula at a time builds long-term memory.": return "Une formule à la fois construit la mémoire durable.";
+            case "Next formula": return "Formule suivante";
+            case "Review mistakes": return "Réviser les erreurs";
+            case "Home": return "Accueil";
+            case "Mistake review": return "Révision des erreurs";
+            case "Practice formulas you forgot before.": return "Pratique les formules que tu as oubliées.";
+            case "No weak formulas yet": return "Aucune formule faible pour l'instant";
+            case "Mistakes will appear here automatically after quizzes.": return "Les erreurs apparaîtront ici automatiquement après les quiz.";
+            case "Keep practicing one formula per day.": return "Continue avec une formule par jour.";
+            case "Review the hardest one first": return "Révise d'abord la plus difficile";
+            case "Weak formulas are sorted by number of mistakes.": return "Les formules faibles sont triées par nombre d'erreurs.";
+            case "Start mistake review": return "Commencer la révision des erreurs";
+            case "Mistakes: %d": return "Erreurs : %d";
+            case "Practice again": return "Repratiquer";
+            case "Progress report": return "Rapport de progression";
+            case "Overall progress: %d%%": return "Progression totale : %d%%";
+            case "Lessons": return "Leçons";
+            case "Accuracy": return "Précision";
+            case "Streak": return "Série";
+            case "Student name and progress are saved only on this phone. No account and no internet needed.": return "Le nom et la progression sont enregistrés seulement sur ce téléphone. Pas de compte ni d'internet.";
+            case "Topic progress": return "Progression par sujet";
+            case "%d / %d completed": return "%d / %d terminées";
+            case "Review %d weak formula(s)": return "Réviser %d formule(s) faibles";
+            case "Change student name": return "Changer le nom de l'élève";
+            case "Reset progress for this phone": return "Réinitialiser la progression de ce téléphone";
+            case "Clear facts for students and parents.": return "Informations claires pour élèves et parents.";
+            case "Offline by design": return "Conçu hors ligne";
+            case "Maths Formula Memorizer works without internet. It has no ads, no login, no Firebase, no analytics, and no server.": return "Maths Formula Memorizer fonctionne sans internet. Pas de pubs, pas de connexion, pas de Firebase, pas d'analytics et pas de serveur.";
+            case "The app does not send student name, class, progress, or mistakes anywhere.": return "L'app n'envoie nulle part le nom, la classe, la progression ou les erreurs.";
+            case "Saved only on this phone": return "Enregistré seulement sur ce téléphone";
+            case "Student name, selected class, completed formulas, quiz accuracy, streak, and mistake review are saved inside this app on this device.": return "Le nom, la classe, les formules terminées, la précision, la série et les erreurs sont enregistrés dans cette app sur cet appareil.";
+            case "Use reset buttons to clear progress from this phone.": return "Utilise les boutons de réinitialisation pour effacer la progression.";
+            case "What the app does": return "Ce que fait l'app";
+            case "Students choose a class, learn formulas with visual memory diagrams, answer short quizzes, and review weak formulas until they improve.": return "Les élèves choisissent une classe, apprennent avec des diagrammes, répondent à de courts quiz et révisent les formules faibles.";
+            case "Class progress includes revision from earlier classes and one-class-ahead challenge formulas.": return "La progression inclut les révisions des classes précédentes et des défis d'une classe au-dessus.";
+            case "Contact": return "Contact";
+            case "For privacy questions, contact: adilhayat@yahoo.com": return "Pour les questions de confidentialité : adilhayat@yahoo.com";
+            case "Reset progress?": return "Réinitialiser la progression ?";
+            case "This only clears progress on this phone.": return "Cela efface seulement la progression sur ce téléphone.";
+            case "Yes, reset progress": return "Oui, réinitialiser";
+            case "Cancel": return "Annuler";
+            case "This only changes progress saved on this phone.": return "Cela change seulement la progression enregistrée sur ce téléphone.";
+            case "Reset progress": return "Réinitialiser la progression";
+            case "Student name and selected class will stay the same.": return "Le nom et la classe sélectionnée resteront identiques.";
+            case "Reset": return "Réinitialiser";
+            case "Hint": return "Indice";
+            case "Use this clue": return "Utilise cet indice";
+            case "Hints help memory. Try answering without looking again.": return "Les indices aident la mémoire. Essaie de répondre sans regarder.";
+            case "Back to question": return "Retour à la question";
+            case "Quit quiz?": return "Quitter le quiz ?";
+            case "Your current quiz answers will not be saved.": return "Tes réponses actuelles ne seront pas enregistrées.";
+            case "Leave this quiz, %s?": return "Quitter ce quiz, %s ?";
+            case "The lesson will not be completed. You can restart it anytime from the same topic.": return "La leçon ne sera pas terminée. Tu peux la relancer depuis le même sujet.";
+            case "Continue quiz": return "Continuer le quiz";
+            case "Leave quiz and go back to topic": return "Quitter et revenir au sujet";
+            case "Quick revision": return "Révision rapide";
+            case "New for this level": return "Nouveau pour ce niveau";
+            case "Challenge formula": return "Formule défi";
+            case "Fresh start": return "Nouveau départ";
+            case "Warm-up level": return "Niveau échauffement";
+            case "Steady practice": return "Pratique régulière";
+            case "Almost mastered": return "Presque maîtrisé";
+            case "Mistake review is waiting in this topic.": return "Une révision des erreurs t'attend dans ce sujet.";
+            case "Fresh topic. Open it when you are ready.": return "Nouveau sujet. Ouvre-le quand tu es prêt.";
+            case "Warm-up level. Keep building memory.": return "Niveau échauffement. Continue à construire la mémoire.";
+            case "Practice level. The pattern is starting to stick.": return "Niveau pratique. Le modèle commence à rester.";
+            case "Confident level. A little review will finish it.": return "Niveau confiant. Une petite révision finira le sujet.";
+            case "Mastered level. Review anytime.": return "Niveau maîtrisé. Révise quand tu veux.";
+            case "Introduced Class %d": return "Introduit en classe %d";
+            case "General Practice": return "Pratique générale";
+            case "Start lesson": return "Commencer la leçon";
+            case "Review again": return "Réviser encore";
+            default: return null;
+        }
+    }
+
     private void showHint(QuizSession session, Question q) {
         currentScreen = SCREEN_QUIZ;
         currentQuizSession = session;
         currentFormula = session.formula;
         currentTopic = session.formula.topic;
         quizContinueAction = () -> showHint(session, q);
-        LinearLayout root = baseScreen("Hint", getStudentName() + " • " + session.formula.name);
+        LinearLayout root = baseScreen(tr("Hint"), getStudentName() + " / " + session.formula.name);
         LinearLayout c = cardTint(Color.rgb(239, 246, 255));
-        c.addView(sectionTitle("Use this clue"));
+        c.addView(sectionTitle(tr("Use this clue")));
         c.addView(bodyText(hintText(session.formula, q)));
-        c.addView(smallText("Hints help memory. Try answering without looking again."));
+        c.addView(smallText(tr("Hints help memory. Try answering without looking again.")));
         root.addView(c);
 
-        Button back = primaryButton("Back to question");
+        Button back = primaryButton(tr("Back to question"));
         back.setOnClickListener(v -> renderQuestion(session));
         root.addView(back);
 
-        Button quit = ghostButton("Quit quiz");
+        Button quit = ghostButton(tr("Quit quiz"));
         quit.setTextColor(RED);
         quit.setOnClickListener(v -> showQuitQuizConfirm(session, () -> showHint(session, q)));
         root.addView(quit);
@@ -1226,17 +2190,17 @@ public class MainActivity extends Activity {
         currentFormula = session.formula;
         currentTopic = session.formula.topic;
         quizContinueAction = continueAction == null ? () -> renderQuestion(session) : continueAction;
-        LinearLayout root = baseScreen("Quit quiz?", "Your current quiz answers will not be saved.");
+        LinearLayout root = baseScreen(tr("Quit quiz?"), tr("Your current quiz answers will not be saved."));
         LinearLayout c = cardTint(Color.rgb(255, 251, 235));
-        c.addView(bigText("Leave this quiz, " + getStudentName() + "?"));
-        c.addView(bodyText("The lesson will not be completed. You can restart it anytime from the same topic."));
+        c.addView(bigText(trf("Leave this quiz, %s?", getStudentName())));
+        c.addView(bodyText(tr("The lesson will not be completed. You can restart it anytime from the same topic.")));
         root.addView(c);
 
-        Button continueQuiz = primaryButton("Continue quiz");
+        Button continueQuiz = primaryButton(tr("Continue quiz"));
         continueQuiz.setOnClickListener(v -> quizContinueAction.run());
         root.addView(continueQuiz);
 
-        Button leave = ghostButton("Leave quiz and go back to topic");
+        Button leave = ghostButton(tr("Leave quiz and go back to topic"));
         leave.setTextColor(RED);
         leave.setOnClickListener(v -> showTopic(session.formula.topic));
         root.addView(leave);
@@ -1245,11 +2209,11 @@ public class MainActivity extends Activity {
     private String praiseMessage() {
         String name = getStudentName();
         String[] messages = {
-                "Excellent, " + name + "!",
-                "Correct — sharp memory, " + name + "!",
-                "Good work, " + name + ". Keep going.",
-                "Nice! That formula is sticking.",
-                "Right answer. Fast and focused."
+                trf("Excellent, %s!", name),
+                trf("Correct - sharp memory, %s!", name),
+                trf("Good work, %s. Keep going.", name),
+                tr("Nice! That formula is sticking."),
+                tr("Right answer. Fast and focused.")
         };
         return messages[random.nextInt(messages.length)];
     }
@@ -1257,11 +2221,11 @@ public class MainActivity extends Activity {
     private String firmCoachMessage() {
         String name = getStudentName();
         String[] messages = {
-                "Not good enough yet, " + name + " — focus.",
-                "Careful, " + name + ". Do not guess.",
-                "Slow down, " + name + ". Read the formula again.",
-                "Wrong answer, but fix it now.",
-                "Focus. You can do better than guessing."
+                trf("Not good enough yet, %s - focus.", name),
+                trf("Careful, %s. Do not guess.", name),
+                trf("Slow down, %s. Read the formula again.", name),
+                tr("Wrong answer, but fix it now."),
+                tr("Focus. You can do better than guessing.")
         };
         return messages[random.nextInt(messages.length)];
     }
@@ -1316,7 +2280,7 @@ public class MainActivity extends Activity {
         ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         bar.setMax(Math.max(1, max));
         bar.setProgress(Math.max(0, progress));
-        bar.setContentDescription("Progress " + Math.max(0, progress) + " of " + Math.max(1, max));
+        bar.setContentDescription(trf("Progress %d of %d", Math.max(0, progress), Math.max(1, max)));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(8));
         lp.setMargins(0, dp(8), 0, dp(8));
         bar.setLayoutParams(lp);
@@ -1387,6 +2351,7 @@ public class MainActivity extends Activity {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER);
+        applyDirection(r);
         return r;
     }
 
@@ -1405,6 +2370,7 @@ public class MainActivity extends Activity {
         t.setGravity(Gravity.CENTER_VERTICAL);
         t.setPadding(0, 0, 0, 0);
         t.setSingleLine(true);
+        applyDirection(t);
         return t;
     }
 
@@ -1417,6 +2383,7 @@ public class MainActivity extends Activity {
         t.setGravity(Gravity.CENTER_VERTICAL);
         t.setPadding(0, 0, 0, 0);
         t.setSingleLine(true);
+        applyDirection(t);
         return t;
     }
 
@@ -1427,6 +2394,7 @@ public class MainActivity extends Activity {
         t.setTextSize(12);
         t.setSingleLine(true);
         t.setPadding(0, dp(2), dp(4), dp(6));
+        applyDirection(t);
         return t;
     }
 
@@ -1437,6 +2405,7 @@ public class MainActivity extends Activity {
         t.setTextColor(TEXT);
         t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setPadding(0, dp(4), 0, dp(6));
+        applyDirection(t);
         return t;
     }
 
@@ -1447,6 +2416,7 @@ public class MainActivity extends Activity {
         t.setTextColor(TEXT);
         t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setPadding(0, dp(7), 0, dp(4));
+        applyDirection(t);
         return t;
     }
 
@@ -1457,6 +2427,7 @@ public class MainActivity extends Activity {
         t.setTextColor(GREEN_DARK);
         t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setPadding(0, 0, dp(8), 0);
+        applyDirection(t);
         return t;
     }
 
@@ -1469,6 +2440,7 @@ public class MainActivity extends Activity {
         t.setGravity(Gravity.CENTER);
         t.setBackground(roundedStroke(Color.WHITE, Color.rgb(167, 243, 208), 20));
         t.setPadding(dp(8), dp(4), dp(8), dp(4));
+        applyDirection(t);
         return t;
     }
 
@@ -1485,6 +2457,8 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, dp(3), 0, dp(6));
         t.setLayoutParams(lp);
+        t.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        t.setTextDirection(View.TEXT_DIRECTION_LTR);
         return t;
     }
 
@@ -1503,6 +2477,7 @@ public class MainActivity extends Activity {
         heading.setTextSize(12);
         heading.setTypeface(Typeface.DEFAULT_BOLD);
         heading.setPadding(0, 0, 0, dp(1));
+        applyDirection(heading);
 
         TextView body = new TextView(this);
         body.setText(text);
@@ -1510,6 +2485,8 @@ public class MainActivity extends Activity {
         body.setTextSize(13);
         body.setLineSpacing(dp(1), 1.0f);
         body.setPadding(0, 0, 0, 0);
+        body.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        body.setTextDirection(View.TEXT_DIRECTION_LTR);
 
         block.addView(heading);
         block.addView(body);
@@ -1523,6 +2500,7 @@ public class MainActivity extends Activity {
         t.setTextColor(TEXT);
         t.setLineSpacing(dp(1), 1.0f);
         t.setPadding(0, dp(3), 0, dp(2));
+        applyDirection(t);
         return t;
     }
 
@@ -1532,6 +2510,7 @@ public class MainActivity extends Activity {
         t.setTextSize(13);
         t.setTextColor(MUTED);
         t.setPadding(0, dp(1), 0, dp(2));
+        applyDirection(t);
         return t;
     }
 
@@ -1542,6 +2521,7 @@ public class MainActivity extends Activity {
         t.setTextColor(TEXT);
         t.setLineSpacing(dp(2), 1.0f);
         t.setPadding(0, dp(4), 0, dp(8));
+        applyDirection(t);
         return t;
     }
 
@@ -1551,6 +2531,7 @@ public class MainActivity extends Activity {
         t.setTextSize(14);
         t.setTextColor(MUTED);
         t.setPadding(0, dp(3), 0, dp(5));
+        applyDirection(t);
         return t;
     }
 
@@ -1569,6 +2550,8 @@ public class MainActivity extends Activity {
         t.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         t.setGravity(Gravity.CENTER);
         t.setPadding(dp(8), dp(14), dp(8), dp(14));
+        t.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        t.setTextDirection(View.TEXT_DIRECTION_LTR);
         return t;
     }
 
@@ -1581,6 +2564,8 @@ public class MainActivity extends Activity {
         t.setGravity(Gravity.CENTER);
         t.setSingleLine(false);
         t.setPadding(dp(6), dp(6), dp(6), dp(8));
+        t.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        t.setTextDirection(View.TEXT_DIRECTION_LTR);
         return t;
     }
 
@@ -1593,6 +2578,7 @@ public class MainActivity extends Activity {
         b.setAllCaps(false);
         b.setBackground(rounded(GREEN, 12));
         b.setPadding(dp(12), dp(10), dp(12), dp(10));
+        applyDirection(b);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, dp(7), 0, dp(7));
         b.setLayoutParams(lp);
@@ -1611,13 +2597,15 @@ public class MainActivity extends Activity {
     private Button classChoiceButton(String className) {
         boolean selected = className.equals(selectedClass);
         Button b = new Button(this);
-        b.setText(selected ? className + "  Selected" : className);
-        b.setContentDescription(selected ? className + " selected" : "Choose " + className);
+        String label = displayClass(className);
+        b.setText(selected ? label + "  " + tr("Selected") : label);
+        b.setContentDescription(selected ? label + " " + tr("Selected") : trf("Choose %s", label));
         b.setTextColor(selected ? Color.WHITE : TEXT);
         b.setTextSize(18);
         b.setTypeface(Typeface.DEFAULT_BOLD);
         b.setAllCaps(false);
         b.setGravity(Gravity.CENTER_VERTICAL);
+        applyDirection(b);
         b.setBackground(selected
                 ? rounded(GREEN, 14)
                 : roundedStroke(Color.WHITE, Color.rgb(209, 250, 229), 14));
@@ -1667,6 +2655,7 @@ public class MainActivity extends Activity {
         b.setAllCaps(false);
         b.setBackground(roundedStroke(Color.rgb(236, 253, 245), BORDER, 12));
         b.setPadding(dp(12), dp(10), dp(12), dp(10));
+        applyDirection(b);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, dp(6), 0, dp(6));
         b.setLayoutParams(lp);
@@ -1698,6 +2687,7 @@ public class MainActivity extends Activity {
         b.setTextSize(15);
         b.setAllCaps(false);
         b.setBackgroundColor(Color.TRANSPARENT);
+        applyDirection(b);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, dp(6), 0, dp(6));
         b.setLayoutParams(lp);
@@ -1718,7 +2708,7 @@ public class MainActivity extends Activity {
             super(MainActivity.this);
             this.max = Math.max(1, max);
             this.progress = Math.max(0, Math.min(progress, this.max));
-            setContentDescription("Progress " + this.progress + " of " + this.max);
+            setContentDescription(trf("Progress %d of %d", this.progress, this.max));
             setLayerType(View.LAYER_TYPE_SOFTWARE, null);
         }
 
